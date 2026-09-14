@@ -357,3 +357,38 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeA1BenchmarkPPORunnerCfg",
     },
 )
+
+
+
+# DM2 CPG environments
+gym.register(
+    id="DM2-CPG-Flat-Unitree-A1-v0",
+    entry_point=f"{__name__}.dm2_cpg_env:DM2CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1FlatEnvCfg"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-CPG-Flat-Unitree-A1-Play-v0",
+    entry_point=f"{__name__}.dm2_cpg_env:DM2CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1FlatEnvCfg_PLAY"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)

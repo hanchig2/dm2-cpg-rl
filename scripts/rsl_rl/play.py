@@ -123,12 +123,31 @@ def main():
         # version 2.2 and below
         policy_nn = ppo_runner.alg.actor_critic
 
-    # export policy to onnx/jit
-    export_model_dir = os.path.join(os.path.dirname(resume_path), "exported")
-    export_policy_as_jit(policy_nn, ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.pt")
-    export_policy_as_onnx(
-        policy_nn, normalizer=ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.onnx"
-    )
+    # Export standard policies using Isaac Lab's generic exporter.
+    # DM2 uses a packed four-leg observation with a shared 31-D LSTM,
+    # which requires a dedicated exporter and is skipped for now.
+    if agent_cfg.policy.class_name == "DM2ActorCriticRecurrent":
+        print(
+            "[INFO]: Skipping JIT/ONNX export for "
+            "DM2ActorCriticRecurrent."
+        )
+    else:
+        export_model_dir = os.path.join(
+            os.path.dirname(resume_path),
+            "exported",
+        )
+        export_policy_as_jit(
+            policy_nn,
+            ppo_runner.obs_normalizer,
+            path=export_model_dir,
+            filename="policy.pt",
+        )
+        export_policy_as_onnx(
+            policy_nn,
+            normalizer=ppo_runner.obs_normalizer,
+            path=export_model_dir,
+            filename="policy.onnx",
+        )
 
     dt = env.unwrapped.step_dt
 
