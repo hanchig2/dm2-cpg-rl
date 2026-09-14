@@ -392,3 +392,38 @@ gym.register(
         ),
     },
 )
+
+
+
+# Flat evaluation environments for centralized CPG-RL and DM2-CPG-RL
+gym.register(
+    id="CPG-Flat-Unitree-A1-Eval-v0",
+    entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.cpg_env_cfg:"
+            "CPGUnitreeA1RoughEnvCfg_EVAL"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:"
+            "CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-CPG-Flat-Unitree-A1-Eval-v0",
+    entry_point=f"{__name__}.dm2_cpg_env:DM2CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1FlatEnvCfg_EVAL"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)
