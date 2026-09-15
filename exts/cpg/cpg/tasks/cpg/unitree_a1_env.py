@@ -456,12 +456,22 @@ class UnitreeA1Env(DirectRLEnv):
         # Save logs as numpy arrays
         if self.cfg.save_eval_logs:
             np.save(os.path.join(dir, "death_status.npy"), self.log_died.cpu().numpy())
+            np.save(os.path.join(dir, "survival_mask.npy"), self.log_survival_mask.cpu().numpy())
+            np.save(os.path.join(dir, "survival_time.npy"), self.log_survival_time.cpu().numpy())
 
             np.save(os.path.join(dir, "base_position.npy"), self.log_base_position.cpu().numpy())
             np.save(os.path.join(dir, "base_quaternion.npy"), self.log_base_quaternion.cpu().numpy())
+            np.save(os.path.join(dir, "base_angular_velocity.npy"), self.log_base_angular_vel.cpu().numpy())
 
             np.save(os.path.join(dir, "joint_position.npy"), self.log_joint_pos.cpu().numpy())
+            np.save(os.path.join(dir, "joint_acceleration.npy"), self.log_joint_acc.cpu().numpy())
             np.save(os.path.join(dir, "feet_forces.npy"), self.log_feet_forces.cpu().numpy())
+            np.save(os.path.join(dir, "energy.npy"), self.log_energy.cpu().numpy())
+
+            robot_mass = torch.sum(
+                self._robot.data.default_mass[0, :], dim=0
+            )
+            np.save(os.path.join(dir, "robot_mass.npy"), robot_mass.cpu().numpy())
 
             np.save(os.path.join(dir, "command.npy"), self.log_commands.cpu().numpy())
             np.save(os.path.join(dir, "base_tracked_velocity.npy"), self.log_base_tracked_vel.cpu().numpy())
