@@ -29,6 +29,12 @@ class CPGCfg:
     fixed_ground_penetration = 0.01
     fixed_robot_height = 0.32
 
+    def __init__(self):
+        # Keep the experimental coupling value as an instance
+        # attribute so Isaac Lab records it in env.yaml.
+        self.coupling_strength = float(type(self).coupling_strength)
+
+
 class CPG:
     """CPG Implementation.
     Isaac Sim joint order: (hip FL, FR, BL, BR, thigh FL, FR, BL, BR, calf FL, FR, BL, BR)

@@ -427,3 +427,76 @@ gym.register(
         ),
     },
 )
+
+
+# Flat coupling-strength sweep environments.
+for coupling_label in ("K1", "K2", "K4"):
+    gym.register(
+        id=f"CPG-Flat-Unitree-A1-{coupling_label}-v0",
+        entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.cpg_env_cfg:"
+                f"CPGUnitreeA1FlatEnvCfg_{coupling_label}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.rsl_rl_ppo_cfg:"
+                "CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )
+
+    gym.register(
+        id=f"CPG-Flat-Unitree-A1-{coupling_label}-Eval-v0",
+        entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.cpg_env_cfg:"
+                f"CPGUnitreeA1FlatEnvCfg_EVAL_{coupling_label}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.rsl_rl_ppo_cfg:"
+                "CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )
+
+    gym.register(
+        id=f"DM2-CPG-Flat-Unitree-A1-{coupling_label}-v0",
+        entry_point=(
+            f"{__name__}.dm2_cpg_env:"
+            "DM2CPGUnitreeA1Env"
+        ),
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.dm2_cpg_env_cfg:"
+                f"DM2CPGUnitreeA1FlatEnvCfg_{coupling_label}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+                "DM2CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )
+
+    gym.register(
+        id=f"DM2-CPG-Flat-Unitree-A1-{coupling_label}-Eval-v0",
+        entry_point=(
+            f"{__name__}.dm2_cpg_env:"
+            "DM2CPGUnitreeA1Env"
+        ),
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.dm2_cpg_env_cfg:"
+                f"DM2CPGUnitreeA1FlatEnvCfg_EVAL_{coupling_label}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+                "DM2CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )

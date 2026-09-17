@@ -17,6 +17,24 @@ from .terrains import EVAL_FLAT_TERRAINS_CFG, EVAL_DISCRETE_TERRAINS_CFG, EVAL_R
 from .unitree_a1_env_cfg import UnitreeA1FlatEnvCfg
 
 
+class CPGCouplingK1Cfg(CPGCfg):
+    """CPG configuration with coupling strength K=1."""
+
+    coupling_strength = 1.0
+
+
+class CPGCouplingK2Cfg(CPGCfg):
+    """CPG configuration with coupling strength K=2."""
+
+    coupling_strength = 2.0
+
+
+class CPGCouplingK4Cfg(CPGCfg):
+    """CPG configuration with coupling strength K=4."""
+
+    coupling_strength = 4.0
+
+
 @configclass
 class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     # Action space is CPG parameters - mu, omega, psi
@@ -322,6 +340,48 @@ class CPGUnitreeA1RoughEnvCfg_EVAL(CPGUnitreeA1RoughEnvCfg):
 
         # Fix the CPG design parameters
         self.cpg_config.use_fixed_initialization = True
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_K1(CPGUnitreeA1FlatEnvCfg):
+    """Flat training configuration with CPG coupling K=1."""
+
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_K2(CPGUnitreeA1FlatEnvCfg):
+    """Flat training configuration with CPG coupling K=2."""
+
+    cpg_config: CPGCfg = CPGCouplingK2Cfg()
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_K4(CPGUnitreeA1FlatEnvCfg):
+    """Flat training configuration with CPG coupling K=4."""
+
+    cpg_config: CPGCfg = CPGCouplingK4Cfg()
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_EVAL_K1(CPGUnitreeA1RoughEnvCfg_EVAL):
+    """Flat evaluation configuration with CPG coupling K=1."""
+
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_EVAL_K2(CPGUnitreeA1RoughEnvCfg_EVAL):
+    """Flat evaluation configuration with CPG coupling K=2."""
+
+    cpg_config: CPGCfg = CPGCouplingK2Cfg()
+
+
+@configclass
+class CPGUnitreeA1FlatEnvCfg_EVAL_K4(CPGUnitreeA1RoughEnvCfg_EVAL):
+    """Flat evaluation configuration with CPG coupling K=4."""
+
+    cpg_config: CPGCfg = CPGCouplingK4Cfg()
 
 
 @configclass
