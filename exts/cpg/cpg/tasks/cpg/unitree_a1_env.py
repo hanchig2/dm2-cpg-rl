@@ -445,13 +445,33 @@ class UnitreeA1Env(DirectRLEnv):
         if not os.path.exists(dir):
             os.makedirs(dir)
 
+        recorded_steps = min(
+            self.eval_step_idx,
+            self.eval_buf_size,
+        )
+
         # Post process logs
         self.log_survival_mask = torch.logical_not(self.log_died).float()
+
+        # Exclude the unrecorded tail when every environment terminates
+        # before the configured evaluation horizon.
+        if recorded_steps < self.eval_buf_size:
+            self.log_survival_mask[:, :, recorded_steps:] = 0.0
 
         # Compute survival time, account for envs that survived all the way
         death_indices = torch.argmax(self.log_died.int(), dim=2).squeeze(1)  # Survival time for envs that died, 0 otherwise
         no_death_envs = ~self.log_died.any(dim=2).squeeze(1)  # Mask for envs that did not die
-        self.log_survival_time = torch.where(no_death_envs, torch.tensor(self.log_died.shape[2], dtype=torch.float, device=self.log_survival_time.device), death_indices.float())
+        recorded_duration = torch.full(
+            (self.num_envs,),
+            float(recorded_steps),
+            dtype=torch.float,
+            device=self.log_survival_time.device,
+        )
+        self.log_survival_time = torch.where(
+            no_death_envs,
+            recorded_duration,
+            death_indices.float(),
+        )
 
         # Save logs as numpy arrays
         if self.cfg.save_eval_logs:
