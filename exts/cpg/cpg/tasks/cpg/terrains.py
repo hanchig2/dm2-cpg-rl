@@ -72,6 +72,52 @@ EVAL_FLAT_TERRAINS_CFG = TerrainGeneratorCfg(
     },
 )
 
+EVAL_ROUGH_MILD_TERRAINS_CFG = TerrainGeneratorCfg(
+    seed=42,
+    size=(40.0, 40.0),
+    border_width=0.0,
+    num_rows=1,
+    num_cols=1,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=None,
+    difficulty_range=(1.0, 1.0),
+    use_cache=False,
+    curriculum=False,
+    sub_terrains={
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=1.0,
+            noise_range=(0.01, 0.03),
+            noise_step=0.01,
+            downsampled_scale=0.2,
+            border_width=0.0,
+        ),
+    },
+)
+
+EVAL_ROUGH_MODERATE_TERRAINS_CFG = TerrainGeneratorCfg(
+    seed=42,
+    size=(40.0, 40.0),
+    border_width=0.0,
+    num_rows=1,
+    num_cols=1,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=None,
+    difficulty_range=(1.0, 1.0),
+    use_cache=False,
+    curriculum=False,
+    sub_terrains={
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=1.0,
+            noise_range=(0.01, 0.06),
+            noise_step=0.01,
+            downsampled_scale=0.2,
+            border_width=0.0,
+        ),
+    },
+)
+
 EVAL_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     seed=42,
     size=(40.0, 40.0),

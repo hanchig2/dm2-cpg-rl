@@ -500,3 +500,95 @@ for coupling_label in ("K1", "K2", "K4"):
             ),
         },
     )
+
+
+# Zero-shot random-uniform rough-terrain evaluation with K=1.
+gym.register(
+    id="CPG-Rough-Unitree-A1-K1-Eval-v0",
+    entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.cpg_env_cfg:"
+            "CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:"
+            "CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-CPG-Rough-Unitree-A1-K1-Eval-v0",
+    entry_point=(
+        f"{__name__}.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1RoughEnvCfg_EVAL_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1FlatPPORunnerCfg"
+        ),
+    },
+)
+
+
+# Mild and moderate zero-shot random-rough evaluations with K=1.
+for rough_level, central_cfg, dm2_cfg in (
+    (
+        "Mild",
+        "CPGUnitreeA1RoughEnvCfg_EVAL_MildRough_K1",
+        "DM2CPGUnitreeA1RoughEnvCfg_EVAL_Mild_K1",
+    ),
+    (
+        "Moderate",
+        "CPGUnitreeA1RoughEnvCfg_EVAL_ModerateRough_K1",
+        "DM2CPGUnitreeA1RoughEnvCfg_EVAL_Moderate_K1",
+    ),
+):
+    gym.register(
+        id=(
+            "CPG-Rough-Unitree-A1-K1-"
+            f"Eval-{rough_level}-v0"
+        ),
+        entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.cpg_env_cfg:"
+                f"{central_cfg}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.rsl_rl_ppo_cfg:"
+                "CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )
+
+    gym.register(
+        id=(
+            "DM2-CPG-Rough-Unitree-A1-K1-"
+            f"Eval-{rough_level}-v0"
+        ),
+        entry_point=(
+            f"{__name__}.dm2_cpg_env:"
+            "DM2CPGUnitreeA1Env"
+        ),
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": (
+                f"{__name__}.dm2_cpg_env_cfg:"
+                f"{dm2_cfg}"
+            ),
+            "rsl_rl_cfg_entry_point": (
+                f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+                "DM2CPGUnitreeA1FlatPPORunnerCfg"
+            ),
+        },
+    )

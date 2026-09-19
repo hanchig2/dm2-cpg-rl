@@ -12,7 +12,15 @@ from modules.reflex import ReflexCfg
 
 from .events import resample_velocity_commands, push_by_setting_velocity_local, push_velocity_curriculum
 from .terrains import ROUGH_TERRAINS_CFG, STAIRS_TERRAINS_CFG
-from .terrains import EVAL_FLAT_TERRAINS_CFG, EVAL_DISCRETE_TERRAINS_CFG, EVAL_ROUGH_TERRAINS_CFG, EVAL_WAVE_TERRAINS_CFG, EVAL_STAIRS_TERRAINS_CFG
+from .terrains import (
+    EVAL_DISCRETE_TERRAINS_CFG,
+    EVAL_FLAT_TERRAINS_CFG,
+    EVAL_ROUGH_MILD_TERRAINS_CFG,
+    EVAL_ROUGH_MODERATE_TERRAINS_CFG,
+    EVAL_ROUGH_TERRAINS_CFG,
+    EVAL_STAIRS_TERRAINS_CFG,
+    EVAL_WAVE_TERRAINS_CFG,
+)
 
 from .unitree_a1_env_cfg import UnitreeA1FlatEnvCfg
 
@@ -389,6 +397,37 @@ class CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough(CPGUnitreeA1RoughEnvCfg_EVAL):
     def __post_init__(self):
         super().__post_init__()
         self.terrain.terrain_generator = EVAL_ROUGH_TERRAINS_CFG
+
+
+@configclass
+class CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough_K1(
+    CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough
+):
+    """Random-uniform rough evaluation with coupling K=1."""
+
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+
+@configclass
+class CPGUnitreeA1RoughEnvCfg_EVAL_MildRough_K1(
+    CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough_K1
+):
+    """Mild 1--3 cm random-uniform rough evaluation."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.terrain.terrain_generator = EVAL_ROUGH_MILD_TERRAINS_CFG
+
+
+@configclass
+class CPGUnitreeA1RoughEnvCfg_EVAL_ModerateRough_K1(
+    CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough_K1
+):
+    """Moderate 1--6 cm random-uniform rough evaluation."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.terrain.terrain_generator = EVAL_ROUGH_MODERATE_TERRAINS_CFG
 
 
 @configclass
