@@ -48,7 +48,7 @@ class DM2ActorCriticRecurrent(ActorCritic):
         init_noise_std: float = 1.0,
         noise_std_type: str = "scalar",
         num_legs: int = 4,
-        local_obs_dim: int = 43,
+        local_obs_dim: int = 52,
         local_action_dim: int = 3,
         **kwargs,
     ):
