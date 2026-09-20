@@ -21,10 +21,13 @@ parser.add_argument("--real-time", action="store_true", default=False, help="Run
 parser.add_argument("--eval_name", type=str, default=None, help="Name of the evaluation experiment")
 parser.add_argument("--save_eval_logs", action="store_true", default=False, help="Save evaluation logs.")
 parser.add_argument(
-    "--terrain_seed",
+    "--eval_seed",
     type=int,
     default=None,
-    help="Override the procedural terrain generator seed.",
+    help=(
+        "Override the evaluation scenario seed used for "
+        "environment randomization and procedural terrain."
+    ),
 )
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -67,7 +70,7 @@ def main():
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
 
-    if args_cli.terrain_seed is not None:
+    if args_cli.eval_seed is not None:
         terrain_generator = getattr(
             env_cfg.terrain,
             "terrain_generator",
@@ -75,10 +78,28 @@ def main():
         )
         if terrain_generator is None:
             raise ValueError(
-                "--terrain_seed requires a generated terrain."
+                "--eval_seed requires a generated terrain."
             )
-        terrain_generator.seed = args_cli.terrain_seed
-        print(f"[INFO] Terrain generator seed: {args_cli.terrain_seed}")
+
+        # Isaac Lab's height-field functions use the global NumPy
+        # RNG, which is initialized from env_cfg.seed. Set both
+        # seeds so each evaluation scenario produces a new terrain
+        # while remaining paired across methods.
+        env_cfg.seed = args_cli.eval_seed
+        terrain_generator.seed = args_cli.eval_seed
+
+        print(
+            f"[INFO] Evaluation scenario seed: "
+            f"{args_cli.eval_seed}"
+        )
+        print(
+            f"[INFO] Environment seed override: "
+            f"{env_cfg.seed}"
+        )
+        print(
+            f"[INFO] Terrain generator seed: "
+            f"{terrain_generator.seed}"
+        )
 
     if args_cli.save_eval_logs:
         print(f"[INFO] Saving evaluation logs for this run")
