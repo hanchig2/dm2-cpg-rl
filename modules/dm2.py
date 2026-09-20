@@ -5,7 +5,10 @@ import torch
 
 NUM_LEGS = 4
 GLOBAL_OBS_DIM = 80
-LOCAL_OBS_DIM = 31
+LOCAL_PRIVATE_OBS_DIM = 29
+LEG_ID_DIM = 2
+COORDINATION_OBS_DIM = 12
+LOCAL_OBS_DIM = 43
 LOCAL_ACTION_DIM = 3
 
 LEG_NAMES = ("FL", "FR", "RL", "RR")
@@ -32,7 +35,7 @@ def _build_local_source_indices() -> tuple[tuple[int, ...], ...]:
             + list(range(77, 80))                    # CPG design parameters
         )
 
-        if len(indices) != LOCAL_OBS_DIM - 2:
+        if len(indices) != LOCAL_PRIVATE_OBS_DIM:
             raise RuntimeError("Incorrect DM2 local-observation mapping.")
 
         rows.append(tuple(indices))
@@ -41,6 +44,14 @@ def _build_local_source_indices() -> tuple[tuple[int, ...], ...]:
 
 
 LOCAL_SOURCE_INDICES = _build_local_source_indices()
+
+# Low-bandwidth coordination information broadcast to every leg:
+# four foot contacts followed by sin(theta) and cos(theta)
+# for all four CPG oscillators.
+COORDINATION_SOURCE_INDICES = (
+    tuple(range(30, 34))
+    + tuple(range(57, 65))
+)
 
 # First coordinate: front (+1) / rear (-1)
 # Second coordinate: left (+1) / right (-1)
@@ -67,11 +78,17 @@ class DM2ObservationMapper:
             device=device,
         )
 
+        self.coordination_indices = torch.tensor(
+            COORDINATION_SOURCE_INDICES,
+            dtype=torch.long,
+            device=device,
+        )
+
     def build_local_observations(
         self,
         global_observations: torch.Tensor,
     ) -> torch.Tensor:
-        """Convert [N, 80] global observations into [N, 4, 31]."""
+        """Convert [N, 80] global observations into [N, 4, 43]."""
 
         if global_observations.ndim != 2:
             raise ValueError(
@@ -94,13 +111,26 @@ class DM2ObservationMapper:
             -1,
         )
 
-        return torch.cat((local_observations, leg_ids), dim=-1)
+        coordination = global_observations[
+            :,
+            self.coordination_indices,
+        ]
+        coordination = coordination.unsqueeze(1).expand(
+            global_observations.shape[0],
+            NUM_LEGS,
+            COORDINATION_OBS_DIM,
+        )
+
+        return torch.cat(
+            (local_observations, leg_ids, coordination),
+            dim=-1,
+        )
 
     def flatten_local_observations(
         self,
         local_observations: torch.Tensor,
     ) -> torch.Tensor:
-        """Convert [N, 4, 31] local observations into [N, 124]."""
+        """Convert [N, 4, 43] local observations into [N, 172]."""
 
         expected_shape = (NUM_LEGS, LOCAL_OBS_DIM)
 
@@ -109,7 +139,7 @@ class DM2ObservationMapper:
             or tuple(local_observations.shape[1:]) != expected_shape
         ):
             raise ValueError(
-                f"Expected local observations with shape [N, 4, 31], "
+                f"Expected local observations with shape [N, 4, 43], "
                 f"got {tuple(local_observations.shape)}."
             )
 
