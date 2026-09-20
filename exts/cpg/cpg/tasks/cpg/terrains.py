@@ -99,8 +99,11 @@ EVAL_ROUGH_MODERATE_TERRAINS_CFG = TerrainGeneratorCfg(
     seed=42,
     size=(40.0, 40.0),
     border_width=0.0,
-    num_rows=1,
-    num_cols=1,
+    # Eight independently generated 40 m x 40 m patches.
+    # With 64 evaluation environments, each patch is reused
+    # by multiple paired rollouts.
+    num_rows=2,
+    num_cols=4,
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=None,

@@ -20,6 +20,12 @@ parser.add_argument("--use_pretrained_checkpoint", action="store_true", help="Us
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 parser.add_argument("--eval_name", type=str, default=None, help="Name of the evaluation experiment")
 parser.add_argument("--save_eval_logs", action="store_true", default=False, help="Save evaluation logs.")
+parser.add_argument(
+    "--terrain_seed",
+    type=int,
+    default=None,
+    help="Override the procedural terrain generator seed.",
+)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -60,6 +66,19 @@ def main():
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
+
+    if args_cli.terrain_seed is not None:
+        terrain_generator = getattr(
+            env_cfg.terrain,
+            "terrain_generator",
+            None,
+        )
+        if terrain_generator is None:
+            raise ValueError(
+                "--terrain_seed requires a generated terrain."
+            )
+        terrain_generator.seed = args_cli.terrain_seed
+        print(f"[INFO] Terrain generator seed: {args_cli.terrain_seed}")
 
     if args_cli.save_eval_logs:
         print(f"[INFO] Saving evaluation logs for this run")
