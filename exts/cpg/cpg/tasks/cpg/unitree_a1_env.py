@@ -52,6 +52,15 @@ class UnitreeA1Env(DirectRLEnv):
             ]
         }
 
+        # Actual policy steps collected in each episode.
+        # This is separate from episode_length_buf because that
+        # buffer is randomized initially to stagger resets.
+        self._curriculum_episode_steps = torch.zeros(
+            self.num_envs,
+            dtype=torch.long,
+            device=self.device,
+        )
+
         # Get specific body indices
         self._base_id, _ = self._contact_sensor.find_bodies("trunk")
         self._feet_ids, _ = self._contact_sensor.find_bodies(".*_foot")
@@ -204,6 +213,10 @@ class UnitreeA1Env(DirectRLEnv):
         # Logging
         for key, value in rewards.items():
             self._episode_sums[key] += value
+
+        if self.cfg.enable_curriculum:
+            self._curriculum_episode_steps += 1
+
         return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -276,11 +289,33 @@ class UnitreeA1Env(DirectRLEnv):
         if self.cfg.enable_curriculum:
             extras["Metrics/Mean_terrain_level"] = mean_terrain_level
             extras["Metrics/Max_terrain_level"] = max_terrain_level
+
+            if getattr(
+                self.cfg,
+                "use_command_tracking_curriculum",
+                False,
+            ):
+                extras["Metrics/Curriculum_linear_score"] = (
+                    self._last_curriculum_linear_score
+                )
+                extras["Metrics/Curriculum_yaw_score"] = (
+                    self._last_curriculum_yaw_score
+                )
+                extras["Metrics/Curriculum_move_up_rate"] = (
+                    self._last_curriculum_move_up_rate
+                )
+                extras["Metrics/Curriculum_move_down_rate"] = (
+                    self._last_curriculum_move_down_rate
+                )
+
         extras["Metrics/Mean_distance"] = torch.mean(distances)
         extras["Metrics/Max_distance"] = torch.max(distances)
 
         self.extras["log"] = dict()
         self.extras["log"].update(extras)
+
+        if self.cfg.enable_curriculum:
+            self._curriculum_episode_steps[env_ids] = 0
 
     def sample_new_commands(self, env_ids: Sequence[int]):
         # Sample new commands
@@ -306,21 +341,157 @@ class UnitreeA1Env(DirectRLEnv):
             self._commands[env_ids, :] = 0.0
 
     def _apply_curriculum(self, env_ids: Sequence[int]) -> tuple[torch.Tensor, torch.Tensor]:
-        # compute the distance the robot walked
-        distance = torch.norm(self._robot.data.root_pos_w[env_ids, :2] - self._terrain.env_origins[env_ids, :2], dim=1)
+        if not getattr(
+            self.cfg,
+            "use_command_tracking_curriculum",
+            False,
+        ):
+            # Preserve the original curriculum for existing tasks.
+            distance = torch.norm(
+                self._robot.data.root_pos_w[env_ids, :2]
+                - self._terrain.env_origins[env_ids, :2],
+                dim=1,
+            )
+            move_up = (
+                distance
+                > self._terrain.cfg.terrain_generator.size[0]
+                / 2
+            )
+            move_down = (
+                distance
+                < torch.norm(
+                    self._commands[env_ids, :2],
+                    dim=1,
+                )
+                * self.max_episode_length_s
+                * 0.5
+            )
+            move_down &= ~move_up
 
-        # robots that walked far enough progress to harder terrains
-        move_up = distance > self._terrain.cfg.terrain_generator.size[0] / 2
+            self._terrain.update_env_origins(
+                env_ids,
+                move_up,
+                move_down,
+            )
 
-        # robots that walked less than half of their required distance go to simpler terrains
-        move_down = distance < torch.norm(self._commands[env_ids, :2], dim=1) * self.max_episode_length_s * 0.5
-        move_down *= ~move_up
+            return (
+                torch.mean(
+                    self._terrain.terrain_levels.float()
+                ),
+                torch.max(
+                    self._terrain.terrain_levels.float()
+                ),
+            )
 
-        # update terrain levels
-        self._terrain.update_env_origins(env_ids, move_up, move_down)
+        steps = self._curriculum_episode_steps[
+            env_ids
+        ].float()
 
-        # return the mean terrain level
-        return torch.mean(self._terrain.terrain_levels.float()), torch.max(self._terrain.terrain_levels.float())
+        elapsed_s = torch.clamp(
+            steps * self.step_dt,
+            min=self.step_dt,
+        )
+
+        linear_reward_scale = max(
+            float(self.cfg.lin_vel_reward_scale),
+            1.0e-8,
+        )
+        yaw_reward_scale = max(
+            float(self.cfg.yaw_rate_reward_scale),
+            1.0e-8,
+        )
+
+        # Recover the mean exp(-error / 0.25) tracking scores
+        # from their accumulated reward terms.
+        linear_score = (
+            self._episode_sums[
+                "track_lin_vel_xy_exp"
+            ][env_ids]
+            / (linear_reward_scale * elapsed_s)
+        ).clamp(0.0, 1.0)
+
+        yaw_score = (
+            self._episode_sums[
+                "track_ang_vel_z_exp"
+            ][env_ids]
+            / (yaw_reward_scale * elapsed_s)
+        ).clamp(0.0, 1.0)
+
+        has_experience = steps > 0
+
+        minimum_steps = max(
+            1,
+            int(
+                self.max_episode_length
+                * float(
+                    self.cfg.curriculum_min_episode_fraction
+                )
+            ),
+        )
+        long_enough = steps >= minimum_steps
+
+        terminated = self.reset_terminated[env_ids]
+        timed_out = self.reset_time_outs[env_ids]
+
+        move_up = (
+            has_experience
+            & long_enough
+            & timed_out
+            & ~terminated
+            & (
+                linear_score
+                >= self.cfg.curriculum_move_up_tracking_score
+            )
+        )
+
+        move_down = has_experience & (
+            terminated
+            | (
+                long_enough
+                & (
+                    linear_score
+                    < self.cfg.curriculum_move_down_tracking_score
+                )
+            )
+        )
+        move_down &= ~move_up
+
+        self._terrain.update_env_origins(
+            env_ids,
+            move_up,
+            move_down,
+        )
+
+        valid_count = torch.clamp(
+            has_experience.float().sum(),
+            min=1.0,
+        )
+
+        self._last_curriculum_linear_score = (
+            linear_score
+            * has_experience.float()
+        ).sum() / valid_count
+
+        self._last_curriculum_yaw_score = (
+            yaw_score
+            * has_experience.float()
+        ).sum() / valid_count
+
+        self._last_curriculum_move_up_rate = (
+            move_up.float().mean()
+        )
+        self._last_curriculum_move_down_rate = (
+            move_down.float().mean()
+        )
+
+        return (
+            torch.mean(
+                self._terrain.terrain_levels.float()
+            ),
+            torch.max(
+                self._terrain.terrain_levels.float()
+            ),
+        )
 
     def _apply_observation_noises(self, obs: dict[str, torch.Tensor]):
         # apply all noises listed in config to given observations

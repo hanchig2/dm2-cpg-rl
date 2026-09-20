@@ -174,7 +174,7 @@ class CPGUnitreeA1RoughCurriculumPPORunnerCfg(
 
     max_iterations = 1000
     save_interval = 250
-    experiment_name = "cpg_k1_moderate_rough_curriculum"
+    experiment_name = "cpg_k1_moderate_rough_tracking_curriculum"
 
 
 @configclass

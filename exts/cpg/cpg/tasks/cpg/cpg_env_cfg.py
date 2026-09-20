@@ -203,6 +203,20 @@ class CPGUnitreeA1RoughEnvCfg_TrainModerate_K1(
 
     cpg_config: CPGCfg = CPGCouplingK1Cfg()
 
+    # Terrain levels are controlled by episode survival and
+    # command-aligned XY velocity tracking.
+    use_command_tracking_curriculum = True
+
+    # Ignore short episodes caused by randomized initial
+    # episode-length buffers when deciding promotion.
+    curriculum_min_episode_fraction = 0.5
+
+    # These scores represent mean exp(-error / 0.25).
+    # The promotion threshold corresponds to an aggregate
+    # XY velocity RMSE of approximately 0.30 m/s.
+    curriculum_move_up_tracking_score = 0.70
+    curriculum_move_down_tracking_score = 0.45
+
     def __post_init__(self):
         super().__post_init__()
 

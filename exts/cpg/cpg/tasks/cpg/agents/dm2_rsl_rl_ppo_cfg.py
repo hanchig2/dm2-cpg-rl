@@ -49,7 +49,7 @@ class DM2CPGUnitreeA1RoughCurriculumPPORunnerCfg(
 ):
     """PPO configuration for DM2-v2 moderate-rough training."""
 
-    experiment_name = "dm2_v2_k1_moderate_rough_curriculum"
+    experiment_name = "dm2_v2_k1_moderate_rough_tracking_curriculum"
 
     policy = RslRlPpoActorCriticRecurrentCfg(
         class_name="DM2ActorCriticRecurrent",
