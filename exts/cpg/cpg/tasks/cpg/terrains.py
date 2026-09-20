@@ -24,6 +24,39 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     },
 )
 
+
+# Targeted curriculum for the moderate random-rough experiment.
+#
+# Four columns are flat and sixteen columns use random-uniform
+# height fields. Terrain rows increase from mild to moderate
+# difficulty. The environment configuration limits initial
+# spawning to the first two rows.
+TRAIN_ROUGH_MODERATE_CURRICULUM_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=20,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=None,
+    difficulty_range=(0.0, 1.0),
+    use_cache=False,
+    curriculum=True,
+    sub_terrains={
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.2,
+        ),
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.8,
+            noise_range=(0.01, 0.06),
+            noise_step=0.01,
+            downsampled_scale=0.2,
+            border_width=0.25,
+        ),
+    },
+)
+
+
 STAIRS_TERRAINS_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,

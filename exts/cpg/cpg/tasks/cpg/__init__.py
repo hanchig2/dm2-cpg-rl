@@ -592,3 +592,42 @@ for rough_level, central_cfg, dm2_cfg in (
             ),
         },
     )
+
+
+# K=1 training environments using the targeted moderate-rough
+# curriculum. Central and DM2 use identical terrain, reward,
+# domain-randomization and PPO settings.
+gym.register(
+    id="CPG-Rough-Unitree-A1-K1-Train-Moderate-v0",
+    entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.cpg_env_cfg:"
+            "CPGUnitreeA1RoughEnvCfg_TrainModerate_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:"
+            "CPGUnitreeA1RoughCurriculumPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-CPG-Rough-Unitree-A1-K1-Train-Moderate-v0",
+    entry_point=(
+        f"{__name__}.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1RoughEnvCfg_TrainModerate_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1RoughCurriculumPPORunnerCfg"
+        ),
+    },
+)

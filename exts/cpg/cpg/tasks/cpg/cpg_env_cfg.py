@@ -11,7 +11,11 @@ from modules.cpg import CPGCfg
 from modules.reflex import ReflexCfg
 
 from .events import resample_velocity_commands, push_by_setting_velocity_local, push_velocity_curriculum
-from .terrains import ROUGH_TERRAINS_CFG, STAIRS_TERRAINS_CFG
+from .terrains import (
+    ROUGH_TERRAINS_CFG,
+    STAIRS_TERRAINS_CFG,
+    TRAIN_ROUGH_MODERATE_CURRICULUM_CFG,
+)
 from .terrains import (
     EVAL_DISCRETE_TERRAINS_CFG,
     EVAL_FLAT_TERRAINS_CFG,
@@ -189,6 +193,25 @@ class CPGUnitreeA1RoughEnvCfg(CPGUnitreeA1FlatEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+
+
+@configclass
+class CPGUnitreeA1RoughEnvCfg_TrainModerate_K1(
+    CPGUnitreeA1RoughEnvCfg
+):
+    """K=1 training on a mild-to-moderate rough curriculum."""
+
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.enable_curriculum = True
+        self.terrain.terrain_generator = (
+            TRAIN_ROUGH_MODERATE_CURRICULUM_CFG
+        )
+        self.terrain.terrain_generator.curriculum = True
+        self.terrain.max_init_terrain_level = 1
 
 
 @configclass

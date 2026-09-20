@@ -14,6 +14,7 @@ from .cpg_env_cfg import (
     CPGCouplingK4Cfg,
     CPGUnitreeA1FlatEnvCfg,
     CPGUnitreeA1FlatEnvCfg_PLAY,
+    CPGUnitreeA1RoughEnvCfg_TrainModerate_K1,
     CPGUnitreeA1RoughEnvCfg_EVAL,
     CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough,
 )
@@ -54,6 +55,16 @@ class DM2CPGUnitreeA1FlatEnvCfg_K1(DM2CPGUnitreeA1FlatEnvCfg):
     """DM2 flat training configuration with CPG coupling K=1."""
 
     cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+
+@configclass
+class DM2CPGUnitreeA1RoughEnvCfg_TrainModerate_K1(
+    CPGUnitreeA1RoughEnvCfg_TrainModerate_K1
+):
+    """DM2-v2 K=1 training on the moderate rough curriculum."""
+
+    observation_space = NUM_LEGS * LOCAL_OBS_DIM
+    state_space = GLOBAL_OBS_DIM
 
 
 @configclass

@@ -167,6 +167,17 @@ class CPGUnitreeA1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
+class CPGUnitreeA1RoughCurriculumPPORunnerCfg(
+    CPGUnitreeA1RoughPPORunnerCfg
+):
+    """PPO configuration for the K=1 moderate-rough curriculum."""
+
+    max_iterations = 1000
+    save_interval = 250
+    experiment_name = "cpg_k1_moderate_rough_curriculum"
+
+
+@configclass
 class CPGUnitreeA1StairsPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 48
     max_iterations = 1000
