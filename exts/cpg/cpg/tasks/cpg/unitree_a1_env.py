@@ -41,6 +41,7 @@ class UnitreeA1Env(DirectRLEnv):
             for key in [
                 "track_lin_vel_xy_exp",
                 "track_ang_vel_z_exp",
+                "track_ang_vel_z_l2",
                 "lin_vel_z_l2",
                 "ang_vel_xy_l2",
                 "dof_torques_l2",
@@ -61,6 +62,7 @@ class UnitreeA1Env(DirectRLEnv):
         # Random heading tracking and standing still envs
         self.heading_targets = torch.zeros(self.num_envs, device=self.device)
         self.heading_tracking_envs = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self.zero_yaw_envs = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self.standing_still_envs = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
         # Visualization
@@ -206,6 +208,7 @@ class UnitreeA1Env(DirectRLEnv):
         rewards = {
             "track_lin_vel_xy_exp": lin_vel_error_mapped * self.cfg.lin_vel_reward_scale * self.step_dt,
             "track_ang_vel_z_exp": yaw_rate_error_mapped * self.cfg.yaw_rate_reward_scale * self.step_dt,
+            "track_ang_vel_z_l2": yaw_rate_error * self.cfg.yaw_rate_l2_reward_scale * self.step_dt,
             "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             "dof_torques_l2": joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
@@ -309,10 +312,55 @@ class UnitreeA1Env(DirectRLEnv):
         self._commands[env_ids, 1] = rand.uniform_(*self.cfg.commands.lin_vel_y_ranges)
         self._commands[env_ids, 2] = rand.uniform_(*self.cfg.commands.ang_vel_z_ranges)
 
-        # Sample heading tracking and standing still environments
-        self.standing_still_envs[env_ids] = rand.uniform_(0.0, 1.0) <= self.cfg.commands.standing_still_envs_prob
-        self.heading_tracking_envs[env_ids] = rand.uniform_(0.0, 1.0) <= self.cfg.commands.heading_tracking_envs_prob
-        self.heading_targets[env_ids] = math_utils.wrap_to_pi(rand.uniform_(*self.cfg.commands.heading_target_ranges) + self._robot.data.heading_w[env_ids])
+        # Sample mutually exclusive yaw-command modes:
+        # heading tracking, explicit zero-yaw motion, or direct yaw rate.
+        heading_probability = (
+            self.cfg.commands.heading_tracking_envs_prob
+            if self.cfg.commands.sample_heading_tracking_envs
+            else 0.0
+        )
+        zero_yaw_probability = (
+            self.cfg.commands.zero_yaw_envs_prob
+            if self.cfg.commands.sample_zero_yaw_envs
+            else 0.0
+        )
+
+        if heading_probability + zero_yaw_probability > 1.0:
+            raise ValueError(
+                "heading_tracking_envs_prob + zero_yaw_envs_prob "
+                "must not exceed 1.0."
+            )
+
+        yaw_mode = torch.empty(
+            len(env_ids),
+            device=self.device,
+        ).uniform_(0.0, 1.0)
+
+        self.heading_tracking_envs[env_ids] = (
+            yaw_mode < heading_probability
+        )
+        self.zero_yaw_envs[env_ids] = (
+            (yaw_mode >= heading_probability)
+            & (
+                yaw_mode
+                < heading_probability
+                + zero_yaw_probability
+            )
+        )
+
+        self.standing_still_envs[env_ids] = (
+            rand.uniform_(0.0, 1.0)
+            <= self.cfg.commands.standing_still_envs_prob
+        )
+
+        self.heading_targets[env_ids] = (
+            math_utils.wrap_to_pi(
+                rand.uniform_(
+                    *self.cfg.commands.heading_target_ranges
+                )
+                + self._robot.data.heading_w[env_ids]
+            )
+        )
 
     def _update_commands(self):
         if self.cfg.commands.sample_heading_tracking_envs:
@@ -320,6 +368,12 @@ class UnitreeA1Env(DirectRLEnv):
             heading_errors = math_utils.wrap_to_pi(self.heading_targets[env_ids] - self._robot.data.heading_w[env_ids])
 
             self._commands[env_ids, 2] = torch.clip(heading_errors * self.cfg.commands.heading_tracking_kp, *self.cfg.commands.ang_vel_z_ranges)
+
+        if self.cfg.commands.sample_zero_yaw_envs:
+            env_ids = self.zero_yaw_envs.nonzero(
+                as_tuple=False
+            ).flatten()
+            self._commands[env_ids, 2] = 0.0
 
         if self.cfg.commands.sample_standing_still_envs:
             env_ids = self.standing_still_envs.nonzero(as_tuple=False).flatten()

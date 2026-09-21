@@ -111,11 +111,15 @@ class CommandsCfg:
     sample_standing_still_envs = True
     standing_still_envs_prob = 0.02
 
-    # randomly sample envs to be given heading tracking commands instead of constant angular velocity
+    # Mutually exclusive yaw-command modes. The base configuration
+    # preserves the legacy behavior; CPG training overrides these values.
     sample_heading_tracking_envs = True
     heading_tracking_envs_prob = 1.0
     heading_target_ranges = (-math.pi, math.pi)
     heading_tracking_kp = 0.5
+
+    sample_zero_yaw_envs = False
+    zero_yaw_envs_prob = 0.0
 
 
 @configclass
@@ -207,6 +211,7 @@ class UnitreeA1FlatEnvCfg(DirectRLEnvCfg):
     # reward scales
     lin_vel_reward_scale = 1.5
     yaw_rate_reward_scale = 0.75
+    yaw_rate_l2_reward_scale = 0.0
     feet_air_time_reward_scale = 0.25
 
     # penalty scales

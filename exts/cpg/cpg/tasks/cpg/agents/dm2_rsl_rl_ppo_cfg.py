@@ -26,7 +26,7 @@ class DM2CPGUnitreeA1FlatPPORunnerCfg(
 ):
     """PPO configuration for flat-terrain DM2-CPG-RL."""
 
-    experiment_name = "dm2_v6_cpg_unitree_a1_flat"
+    experiment_name = "dm2_v7_yaw_balanced_cpg_unitree_a1_flat"
 
     policy = RslRlPpoActorCriticRecurrentCfg(
         class_name="DM2ActorCriticRecurrent",

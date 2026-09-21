@@ -22,7 +22,18 @@ from .terrains import (
     EVAL_WAVE_TERRAINS_CFG,
 )
 
-from .unitree_a1_env_cfg import UnitreeA1FlatEnvCfg
+from .unitree_a1_env_cfg import CommandsCfg, UnitreeA1FlatEnvCfg
+
+
+@configclass
+class CPGYawBalancedCommandsCfg(CommandsCfg):
+    """Balanced yaw modes for CPG policy training."""
+
+    # 50% heading tracking, 25% explicit zero yaw,
+    # and 25% directly sampled yaw-rate commands.
+    heading_tracking_envs_prob = 0.5
+    sample_zero_yaw_envs = True
+    zero_yaw_envs_prob = 0.25
 
 
 class CPGCouplingK1Cfg(CPGCfg):
@@ -49,6 +60,8 @@ class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     action_space = 12
     action_scale = 0.5
 
+    commands: CommandsCfg = CPGYawBalancedCommandsCfg()
+
     # Previous 77-dimensional observation plus the
     # three-dimensional body-frame base linear velocity.
     observation_space = 80
@@ -62,6 +75,10 @@ class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     # reward scales
     lin_vel_reward_scale = 2.0
     yaw_rate_reward_scale = 1.0
+
+    # Dense yaw-rate error penalty. Unlike the exponential reward,
+    # this retains a gradient when the tracking error is large.
+    yaw_rate_l2_reward_scale = -0.5
 
     # penalty scales
     z_vel_reward_scale = -2.0
@@ -310,6 +327,7 @@ class CPGUnitreeA1RoughEnvCfg_EVAL(CPGUnitreeA1RoughEnvCfg):
         self.commands.ang_vel_z_ranges = (0.0, 0.0)
 
         self.commands.sample_heading_tracking_envs = False
+        self.commands.sample_zero_yaw_envs = False
         self.commands.sample_standing_still_envs = False
 
         # env_spacing is unused when using TerrainGenerator
