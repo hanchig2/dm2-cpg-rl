@@ -216,6 +216,7 @@ class UnitreeA1FlatEnvCfg(DirectRLEnvCfg):
     joint_accel_reward_scale = -2.5e-7
     action_rate_reward_scale = -0.01
     undesired_contact_reward_scale = 0.0
+    termination_reward_scale = 0.0
     flat_orientation_reward_scale = -2.5
 
     # Visualization

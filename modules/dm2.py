@@ -4,35 +4,36 @@ import torch
 
 
 NUM_LEGS = 4
-GLOBAL_OBS_DIM = 80
-LOCAL_PRIVATE_OBS_DIM = 29
+GLOBAL_OBS_DIM = 83
+LOCAL_PRIVATE_OBS_DIM = 32
 LEG_ID_DIM = 2
 COORDINATION_OBS_DIM = 12
-LOCAL_OBS_DIM = 43
+LOCAL_OBS_DIM = 46
 LOCAL_ACTION_DIM = 3
 
 LEG_NAMES = ("FL", "FR", "RL", "RR")
 
 
 def _build_local_source_indices() -> tuple[tuple[int, ...], ...]:
-    """Build the 29 global-observation indices used by each leg."""
+    """Build the 32 global-observation indices used by each leg."""
 
     rows = []
 
     for leg in range(NUM_LEGS):
         indices = (
-            list(range(0, 3))                         # base angular velocity
-            + list(range(3, 6))                       # projected gravity
-            + list(range(34, 37))                     # velocity commands
-            + [6 + leg, 10 + leg, 14 + leg]          # local joint positions
-            + [18 + leg, 22 + leg, 26 + leg]         # local joint velocities
-            + [30 + leg]                              # local foot contact
-            + [37 + leg, 41 + leg, 45 + leg]         # previous local CPG action
-            + [49 + 2 * leg, 50 + 2 * leg]           # local r_x, r_y
-            + [57 + leg, 61 + leg]                   # sin(theta), cos(theta)
-            + [65 + 2 * leg, 66 + 2 * leg]           # local r_dot_x, r_dot_y
-            + [73 + leg]                             # local theta_dot
-            + list(range(77, 80))                    # CPG design parameters
+            list(range(0, 3))                         # base linear velocity
+            + list(range(3, 6))                       # base angular velocity
+            + list(range(6, 9))                       # projected gravity
+            + list(range(37, 40))                     # velocity commands
+            + [9 + leg, 13 + leg, 17 + leg]          # local joint positions
+            + [21 + leg, 25 + leg, 29 + leg]         # local joint velocities
+            + [33 + leg]                              # local foot contact
+            + [40 + leg, 44 + leg, 48 + leg]         # previous local CPG action
+            + [52 + 2 * leg, 53 + 2 * leg]           # local r_x, r_y
+            + [60 + leg, 64 + leg]                   # sin(theta), cos(theta)
+            + [68 + 2 * leg, 69 + 2 * leg]           # local r_dot_x, r_dot_y
+            + [76 + leg]                             # local theta_dot
+            + list(range(80, 83))                    # CPG design parameters
         )
 
         if len(indices) != LOCAL_PRIVATE_OBS_DIM:
@@ -49,8 +50,8 @@ LOCAL_SOURCE_INDICES = _build_local_source_indices()
 # four foot contacts followed by sin(theta) and cos(theta)
 # for all four CPG oscillators.
 COORDINATION_SOURCE_INDICES = (
-    tuple(range(30, 34))
-    + tuple(range(57, 65))
+    tuple(range(33, 37))
+    + tuple(range(60, 68))
 )
 
 # First coordinate: front (+1) / rear (-1)
@@ -88,11 +89,11 @@ class DM2ObservationMapper:
         self,
         global_observations: torch.Tensor,
     ) -> torch.Tensor:
-        """Convert [N, 80] global observations into [N, 4, 43]."""
+        """Convert [N, 83] global observations into [N, 4, 46]."""
 
         if global_observations.ndim != 2:
             raise ValueError(
-                "Expected global observations with shape [N, 80], "
+                "Expected global observations with shape [N, 83], "
                 f"got {tuple(global_observations.shape)}."
             )
 
@@ -130,7 +131,7 @@ class DM2ObservationMapper:
         self,
         local_observations: torch.Tensor,
     ) -> torch.Tensor:
-        """Convert [N, 4, 43] local observations into [N, 172]."""
+        """Convert [N, 4, 46] local observations into [N, 184]."""
 
         expected_shape = (NUM_LEGS, LOCAL_OBS_DIM)
 
@@ -139,7 +140,7 @@ class DM2ObservationMapper:
             or tuple(local_observations.shape[1:]) != expected_shape
         ):
             raise ValueError(
-                f"Expected local observations with shape [N, 4, 43], "
+                f"Expected local observations with shape [N, 4, 46], "
                 f"got {tuple(local_observations.shape)}."
             )
 

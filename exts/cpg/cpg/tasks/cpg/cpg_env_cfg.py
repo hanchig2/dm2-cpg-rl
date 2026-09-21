@@ -49,8 +49,9 @@ class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     action_space = 12
     action_scale = 0.5
 
-    # Observation space - 45 + foot contact states (4) + rx, ry, sin theta, cos theta, rx_dot, ry_dot, omega (28)
-    observation_space = 77
+    # Previous 77-dimensional observation plus the
+    # three-dimensional body-frame base linear velocity.
+    observation_space = 80
 
     # CPG config
     cpg_config: CPGCfg = CPGCfg()
@@ -66,6 +67,7 @@ class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     z_vel_reward_scale = -2.0
     ang_vel_reward_scale = -0.05
     joint_power_reward_scale = -0.001
+    termination_reward_scale = -2.0
 
     joint_torque_reward_scale = 0.0
     joint_accel_reward_scale = 0.0

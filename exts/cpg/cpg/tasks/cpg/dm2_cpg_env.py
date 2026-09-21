@@ -23,7 +23,7 @@ class DM2CPGUnitreeA1Env(CPGUnitreeA1Env):
                 device=self.device
             )
 
-        # Actor: four 31-D local observations, flattened to 124-D.
+        # Actor: four 46-D local observations, flattened to 184-D.
         local_observations = (
             self._dm2_observation_mapper.build_local_observations(
                 observations["policy"]
@@ -36,5 +36,5 @@ class DM2CPGUnitreeA1Env(CPGUnitreeA1Env):
         )
 
 
-        # Critic remains the original centralized 80-D observation.
+        # Critic remains the centralized 83-D observation.
         return observations

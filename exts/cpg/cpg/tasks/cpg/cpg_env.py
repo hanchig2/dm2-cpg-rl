@@ -112,6 +112,7 @@ class CPGUnitreeA1Env(UnitreeA1Env):
         foot_contact_states = foot_contact_states.float()
 
         sensory_obs = {
+            "base_lin_vel": self._robot.data.root_lin_vel_b.clone(),
             "base_ang_vel": self._robot.data.root_ang_vel_b.clone(),
             "base_projected_gravity": self._robot.data.projected_gravity_b.clone(),
             "joint_pos": self._robot.data.joint_pos - self._robot.data.default_joint_pos,

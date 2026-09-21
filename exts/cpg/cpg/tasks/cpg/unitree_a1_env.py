@@ -48,6 +48,7 @@ class UnitreeA1Env(DirectRLEnv):
                 "action_rate_l2",
                 "feet_air_time",
                 "undesired_contacts",
+                "termination",
                 "flat_orientation_l2",
             ]
         }
@@ -187,6 +188,20 @@ class UnitreeA1Env(DirectRLEnv):
         contacts = torch.sum(is_contact, dim=1)
         # flat orientation
         flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
+        # terminal trunk contact
+        net_contact_forces = (
+            self._contact_sensor.data.net_forces_w_history
+        )
+        base_contact = torch.any(
+            torch.max(
+                torch.norm(
+                    net_contact_forces[:, :, self._base_id],
+                    dim=-1,
+                ),
+                dim=1,
+            )[0] > 1.0,
+            dim=1,
+        ).float()
 
         rewards = {
             "track_lin_vel_xy_exp": lin_vel_error_mapped * self.cfg.lin_vel_reward_scale * self.step_dt,
@@ -198,6 +213,11 @@ class UnitreeA1Env(DirectRLEnv):
             "action_rate_l2": action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
             "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
             "undesired_contacts": contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
+            # This one-time terminal-event penalty is not multiplied by dt.
+            "termination": (
+                base_contact
+                * self.cfg.termination_reward_scale
+            ),
             "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)

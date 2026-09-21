@@ -106,8 +106,8 @@ class UnitreeA1BenchmarkPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 class CPGUnitreeA1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 48
     max_iterations = 1000
-    save_interval = 1001
-    experiment_name = "cpg_unitree_a1_flat"
+    save_interval = 50
+    experiment_name = "cpg_v6_cpg_unitree_a1_flat"
     empirical_normalization = True
     policy = RslRlPpoActorCriticRecurrentCfg(
         rnn_type="lstm",
