@@ -24,6 +24,50 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     },
 )
 
+
+# Static mixed-terrain distribution for paired V8 training.
+#
+# The distribution is identical for Central and DM2:
+# 40% flat, 30% mild random rough, and 30% moderate
+# random rough. Terrain difficulty is sampled independently;
+# no policy-dependent terrain curriculum is used.
+TRAIN_STATIC_MIXED_TERRAINS_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=20,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=None,
+    difficulty_range=(0.0, 1.0),
+    use_cache=False,
+    curriculum=False,
+    sub_terrains={
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.4,
+        ),
+        "mild_random_rough": (
+            terrain_gen.HfRandomUniformTerrainCfg(
+                proportion=0.3,
+                noise_range=(0.01, 0.03),
+                noise_step=0.01,
+                downsampled_scale=0.2,
+                border_width=0.25,
+            )
+        ),
+        "moderate_random_rough": (
+            terrain_gen.HfRandomUniformTerrainCfg(
+                proportion=0.3,
+                noise_range=(0.01, 0.06),
+                noise_step=0.01,
+                downsampled_scale=0.2,
+                border_width=0.25,
+            )
+        ),
+    },
+)
+
+
 STAIRS_TERRAINS_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,

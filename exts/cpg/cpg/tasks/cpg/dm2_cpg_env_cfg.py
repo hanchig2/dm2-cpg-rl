@@ -14,6 +14,7 @@ from .cpg_env_cfg import (
     CPGCouplingK4Cfg,
     CPGUnitreeA1FlatEnvCfg,
     CPGUnitreeA1FlatEnvCfg_PLAY,
+    CPGUnitreeA1MixedEnvCfg_K1,
     CPGUnitreeA1RoughEnvCfg_EVAL,
     CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough,
 )
@@ -44,6 +45,16 @@ class DM2CPGUnitreeA1FlatEnvCfg_EVAL(
     CPGUnitreeA1RoughEnvCfg_EVAL
 ):
     """Flat evaluation configuration for DM2-CPG-RL."""
+
+    observation_space = NUM_LEGS * LOCAL_OBS_DIM
+    state_space = GLOBAL_OBS_DIM
+
+
+@configclass
+class DM2CPGUnitreeA1MixedEnvCfg_K1(
+    CPGUnitreeA1MixedEnvCfg_K1
+):
+    """DM2 K=1 training on the static terrain mixture."""
 
     observation_space = NUM_LEGS * LOCAL_OBS_DIM
     state_space = GLOBAL_OBS_DIM

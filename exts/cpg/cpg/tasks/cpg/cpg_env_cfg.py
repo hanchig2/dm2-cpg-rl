@@ -11,7 +11,11 @@ from modules.cpg import CPGCfg
 from modules.reflex import ReflexCfg
 
 from .events import resample_velocity_commands, push_by_setting_velocity_local, push_velocity_curriculum
-from .terrains import ROUGH_TERRAINS_CFG, STAIRS_TERRAINS_CFG
+from .terrains import (
+    ROUGH_TERRAINS_CFG,
+    STAIRS_TERRAINS_CFG,
+    TRAIN_STATIC_MIXED_TERRAINS_CFG,
+)
 from .terrains import (
     EVAL_DISCRETE_TERRAINS_CFG,
     EVAL_FLAT_TERRAINS_CFG,
@@ -79,6 +83,11 @@ class CPGUnitreeA1FlatEnvCfg(UnitreeA1FlatEnvCfg):
     # Dense yaw-rate error penalty. Unlike the exponential reward,
     # this retains a gradient when the tracking error is large.
     yaw_rate_l2_reward_scale = -0.5
+
+    # Heading-hold penalty used only for explicit zero-yaw
+    # and standing-still command modes. Direct yaw-rate and
+    # heading-tracking commands are not penalized by this term.
+    heading_error_reward_scale = -1.0
 
     # penalty scales
     z_vel_reward_scale = -2.0
@@ -208,6 +217,26 @@ class CPGUnitreeA1RoughEnvCfg(CPGUnitreeA1FlatEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
+
+
+@configclass
+class CPGUnitreeA1MixedEnvCfg_K1(
+    CPGUnitreeA1RoughEnvCfg
+):
+    """K=1 training on a static flat/mild/moderate mixture."""
+
+    enable_curriculum = False
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.enable_curriculum = False
+        self.terrain.terrain_generator = (
+            TRAIN_STATIC_MIXED_TERRAINS_CFG
+        )
+        self.terrain.terrain_generator.curriculum = False
+        self.terrain.max_init_terrain_level = None
 
 
 @configclass

@@ -42,6 +42,7 @@ class UnitreeA1Env(DirectRLEnv):
                 "track_lin_vel_xy_exp",
                 "track_ang_vel_z_exp",
                 "track_ang_vel_z_l2",
+                "track_heading_l2",
                 "lin_vel_z_l2",
                 "ang_vel_xy_l2",
                 "dof_torques_l2",
@@ -171,6 +172,24 @@ class UnitreeA1Env(DirectRLEnv):
         # yaw rate tracking
         yaw_rate_error = torch.square(self._commands[:, 2] - self._robot.data.root_ang_vel_b[:, 2])
         yaw_rate_error_mapped = torch.exp(-yaw_rate_error / 0.25)
+
+        # Maintain the heading present when a zero-yaw or
+        # standing-still command was sampled. This prevents
+        # a small persistent yaw-rate bias from accumulating
+        # into circular locomotion.
+        heading_error = math_utils.wrap_to_pi(
+            self.heading_targets
+            - self._robot.data.heading_w
+        )
+        heading_hold_mask = torch.logical_or(
+            self.zero_yaw_envs,
+            self.standing_still_envs,
+        ).float()
+        heading_error_l2 = (
+            torch.square(heading_error)
+            * heading_hold_mask
+        )
+
         # z velocity tracking
         z_vel_error = torch.square(self._robot.data.root_lin_vel_b[:, 2])
         # angular velocity x/y
@@ -209,6 +228,7 @@ class UnitreeA1Env(DirectRLEnv):
             "track_lin_vel_xy_exp": lin_vel_error_mapped * self.cfg.lin_vel_reward_scale * self.step_dt,
             "track_ang_vel_z_exp": yaw_rate_error_mapped * self.cfg.yaw_rate_reward_scale * self.step_dt,
             "track_ang_vel_z_l2": yaw_rate_error * self.cfg.yaw_rate_l2_reward_scale * self.step_dt,
+            "track_heading_l2": heading_error_l2 * self.cfg.heading_error_reward_scale * self.step_dt,
             "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             "dof_torques_l2": joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
@@ -360,6 +380,24 @@ class UnitreeA1Env(DirectRLEnv):
                 )
                 + self._robot.data.heading_w[env_ids]
             )
+        )
+
+        # Explicit zero-yaw and standing commands hold the
+        # robot heading measured at command-sampling time.
+        env_ids_tensor = torch.as_tensor(
+            env_ids,
+            dtype=torch.long,
+            device=self.device,
+        )
+        heading_hold_local = torch.logical_or(
+            self.zero_yaw_envs[env_ids_tensor],
+            self.standing_still_envs[env_ids_tensor],
+        )
+        heading_hold_ids = env_ids_tensor[
+            heading_hold_local
+        ]
+        self.heading_targets[heading_hold_ids] = (
+            self._robot.data.heading_w[heading_hold_ids]
         )
 
     def _update_commands(self):

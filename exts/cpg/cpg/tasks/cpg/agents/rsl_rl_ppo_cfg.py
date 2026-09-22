@@ -135,6 +135,19 @@ class CPGUnitreeA1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
+class CPGUnitreeA1MixedPPORunnerCfg(
+    CPGUnitreeA1FlatPPORunnerCfg
+):
+    """V8 paired static mixed-terrain training configuration."""
+
+    max_iterations = 500
+    save_interval = 10
+    experiment_name = (
+        "cpg_v8_static_mixed_cpg_unitree_a1"
+    )
+
+
+@configclass
 class CPGUnitreeA1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 48
     max_iterations = 1000

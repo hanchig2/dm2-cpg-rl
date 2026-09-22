@@ -592,3 +592,36 @@ for rough_level, central_cfg, dm2_cfg in (
             ),
         },
     )
+
+# V8 paired static mixed-terrain training environments.
+gym.register(
+    id="CPG-Mixed-Unitree-A1-K1-v0",
+    entry_point=f"{__name__}.cpg_env:CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.cpg_env_cfg:"
+            "CPGUnitreeA1MixedEnvCfg_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.rsl_rl_ppo_cfg:"
+            "CPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-CPG-Mixed-Unitree-A1-K1-v0",
+    entry_point=f"{__name__}.dm2_cpg_env:DM2CPGUnitreeA1Env",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1MixedEnvCfg_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2CPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)

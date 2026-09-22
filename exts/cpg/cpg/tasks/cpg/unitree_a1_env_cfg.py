@@ -212,6 +212,7 @@ class UnitreeA1FlatEnvCfg(DirectRLEnvCfg):
     lin_vel_reward_scale = 1.5
     yaw_rate_reward_scale = 0.75
     yaw_rate_l2_reward_scale = 0.0
+    heading_error_reward_scale = 0.0
     feet_air_time_reward_scale = 0.25
 
     # penalty scales
