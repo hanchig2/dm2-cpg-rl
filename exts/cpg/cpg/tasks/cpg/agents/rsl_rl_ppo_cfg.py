@@ -143,7 +143,7 @@ class CPGUnitreeA1MixedPPORunnerCfg(
     max_iterations = 500
     save_interval = 10
     experiment_name = (
-        "cpg_v8_static_mixed_cpg_unitree_a1"
+        "cpg_v9_progress_static_mixed_cpg_unitree_a1"
     )
 
 

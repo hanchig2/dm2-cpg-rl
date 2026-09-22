@@ -228,6 +228,10 @@ class CPGUnitreeA1MixedEnvCfg_K1(
     enable_curriculum = False
     cpg_config: CPGCfg = CPGCouplingK1Cfg()
 
+    # V9 anti-stalling reward.
+    baseline_correct_lin_vel_reward = True
+    command_progress_reward_scale = 2.0
+
     def __post_init__(self):
         super().__post_init__()
 

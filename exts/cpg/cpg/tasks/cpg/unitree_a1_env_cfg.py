@@ -210,6 +210,11 @@ class UnitreeA1FlatEnvCfg(DirectRLEnvCfg):
 
     # reward scales
     lin_vel_reward_scale = 1.5
+
+    # Optional anti-stalling decomposition for moving commands.
+    # Disabled by default to preserve legacy environments.
+    baseline_correct_lin_vel_reward = False
+    command_progress_reward_scale = 0.0
     yaw_rate_reward_scale = 0.75
     yaw_rate_l2_reward_scale = 0.0
     heading_error_reward_scale = 0.0

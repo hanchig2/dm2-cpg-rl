@@ -49,7 +49,7 @@ class DM2CPGUnitreeA1MixedPPORunnerCfg(
     """V8 DM2 static mixed-terrain PPO configuration."""
 
     experiment_name = (
-        "dm2_v8_static_mixed_cpg_unitree_a1"
+        "dm2_v9_progress_static_mixed_cpg_unitree_a1"
     )
 
     policy = RslRlPpoActorCriticRecurrentCfg(

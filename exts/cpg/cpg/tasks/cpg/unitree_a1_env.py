@@ -40,6 +40,7 @@ class UnitreeA1Env(DirectRLEnv):
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
                 "track_lin_vel_xy_exp",
+                "command_direction_progress",
                 "track_ang_vel_z_exp",
                 "track_ang_vel_z_l2",
                 "track_heading_l2",
@@ -169,6 +170,71 @@ class UnitreeA1Env(DirectRLEnv):
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
         lin_vel_error_mapped = torch.exp(-lin_vel_error / 0.25)
+
+        # Anti-stalling decomposition for planar velocity commands.
+        planar_command = self._commands[:, :2]
+        planar_velocity = (
+            self._robot.data.root_lin_vel_b[:, :2]
+        )
+
+        planar_command_squared = torch.sum(
+            torch.square(planar_command),
+            dim=1,
+        )
+
+        moving_command = (
+            planar_command_squared > 0.01
+        )
+
+        # Reward earned by standing still under the current command.
+        stationary_tracking_score = torch.exp(
+            -planar_command_squared / 0.25
+        )
+
+        if self.cfg.baseline_correct_lin_vel_reward:
+            lin_vel_tracking_score = torch.where(
+                moving_command,
+                (
+                    lin_vel_error_mapped
+                    - stationary_tracking_score
+                ),
+                lin_vel_error_mapped,
+            )
+        else:
+            lin_vel_tracking_score = (
+                lin_vel_error_mapped
+            )
+
+        # Actual velocity projected onto the commanded direction and
+        # normalized by commanded speed. Clipping prevents overspeed
+        # from receiving more progress reward than correct tracking.
+        command_direction_progress = torch.sum(
+            planar_velocity * planar_command,
+            dim=1,
+        ) / torch.clamp(
+            planar_command_squared,
+            min=1.0e-6,
+        )
+
+        command_direction_progress = torch.clamp(
+            command_direction_progress,
+            min=-1.0,
+            max=1.0,
+        )
+
+        # Weight progress by the removed stationary baseline. When its
+        # scale equals lin_vel_reward_scale, perfect tracking retains
+        # exactly the original maximum reward.
+        command_direction_progress = torch.where(
+            moving_command,
+            (
+                stationary_tracking_score
+                * command_direction_progress
+            ),
+            torch.zeros_like(
+                command_direction_progress
+            ),
+        )
         # yaw rate tracking
         yaw_rate_error = torch.square(self._commands[:, 2] - self._robot.data.root_ang_vel_b[:, 2])
         yaw_rate_error_mapped = torch.exp(-yaw_rate_error / 0.25)
@@ -225,7 +291,12 @@ class UnitreeA1Env(DirectRLEnv):
         ).float()
 
         rewards = {
-            "track_lin_vel_xy_exp": lin_vel_error_mapped * self.cfg.lin_vel_reward_scale * self.step_dt,
+            "track_lin_vel_xy_exp": lin_vel_tracking_score * self.cfg.lin_vel_reward_scale * self.step_dt,
+            "command_direction_progress": (
+                command_direction_progress
+                * self.cfg.command_progress_reward_scale
+                * self.step_dt
+            ),
             "track_ang_vel_z_exp": yaw_rate_error_mapped * self.cfg.yaw_rate_reward_scale * self.step_dt,
             "track_ang_vel_z_l2": yaw_rate_error * self.cfg.yaw_rate_l2_reward_scale * self.step_dt,
             "track_heading_l2": heading_error_l2 * self.cfg.heading_error_reward_scale * self.step_dt,
