@@ -171,6 +171,7 @@ def main():
     if agent_cfg.policy.class_name in {
         "DM2ActorCriticRecurrent",
         "DM2MessageActorCriticRecurrent",
+        "DM2RecurrentGraphActorCriticRecurrent",
     }:
         print(
             "[INFO]: Skipping JIT/ONNX export for "

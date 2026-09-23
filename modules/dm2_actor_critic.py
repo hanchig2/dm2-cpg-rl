@@ -8,7 +8,7 @@ from rsl_rl.modules import ActorCritic
 from rsl_rl.networks import Memory
 from rsl_rl.utils import resolve_nn_activation
 
-from modules.dm2_memory import SharedLegMemory
+from modules.dm2_memory import RecurrentGraphLegMemory, SharedLegMemory
 
 
 def _build_mlp(
@@ -418,6 +418,94 @@ class DM2MessageActorCriticRecurrent(
         # RSL-RL's ActorCritic overrides load_state_dict with
         # the older (state_dict, strict) signature, so do not pass
         # PyTorch's newer assign argument through to the parent.
+        return super().load_state_dict(
+            adapted_state_dict,
+            strict=strict,
+        )
+
+
+class DM2RecurrentGraphActorCriticRecurrent(
+    DM2MessageActorCriticRecurrent
+):
+    """V15 DM2 with communication inside recurrent state updates.
+
+    The V12 mean-message actor is retained. Its independent per-leg
+    LSTM is replaced by a relation-aware recurrent graph memory whose
+    initial update is exactly zero.
+    """
+
+    def __init__(
+        self,
+        *args,
+        graph_update_scale: float = 0.1,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        previous_memory = self.memory_a
+
+        graph_memory = RecurrentGraphLegMemory(
+            input_size=self.local_obs_dim,
+            num_legs=self.num_legs,
+            num_layers=previous_memory.num_layers,
+            hidden_size=self.rnn_hidden_dim,
+            graph_update_scale=graph_update_scale,
+        )
+
+        graph_memory.rnn.load_state_dict(
+            previous_memory.rnn.state_dict()
+        )
+
+        self.memory_a = graph_memory
+
+        print(
+            "DM2 recurrent graph memory: "
+            f"{self.memory_a.rnn}"
+        )
+        print(
+            "DM2 graph relation order: "
+            "self, contralateral, ipsilateral, diagonal"
+        )
+        print(
+            "DM2 graph update scale: "
+            f"{self.memory_a.graph_update_scale}"
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+        assign: bool = False,
+    ):
+        """Load V12 checkpoints with zero-initialized graph layers."""
+
+        adapted_state_dict = state_dict.copy()
+        current_state_dict = self.state_dict()
+
+        graph_prefixes = (
+            "memory_a.graph_gate.",
+            "memory_a.graph_candidate.",
+        )
+
+        added_graph_keys = []
+
+        for key, value in current_state_dict.items():
+            if (
+                key.startswith(graph_prefixes)
+                and key not in adapted_state_dict
+            ):
+                adapted_state_dict[key] = (
+                    value.detach().clone()
+                )
+                added_graph_keys.append(key)
+
+        if added_graph_keys:
+            print(
+                "[INFO]: Initialized "
+                f"{len(added_graph_keys)} recurrent-graph "
+                "checkpoint tensors from exact-parity defaults."
+            )
+
         return super().load_state_dict(
             adapted_state_dict,
             strict=strict,

@@ -253,7 +253,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             f"[INFO]: Loading model checkpoint from: "
             f"{resume_path}"
         )
-        runner.load(resume_path)
+        runner.load(
+            resume_path,
+            load_optimizer=not args_cli.reset_optimizer,
+        )
 
         if args_cli.reset_optimizer:
             optimizer = runner.alg.optimizer

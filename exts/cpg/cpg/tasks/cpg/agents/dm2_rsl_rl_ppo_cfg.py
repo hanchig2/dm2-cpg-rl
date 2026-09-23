@@ -11,6 +11,7 @@ from isaaclab_rl.rsl_rl import RslRlPpoActorCriticRecurrentCfg
 from modules.dm2_actor_critic import (
     DM2ActorCriticRecurrent,
     DM2MessageActorCriticRecurrent,
+    DM2RecurrentGraphActorCriticRecurrent,
 )
 
 from .rsl_rl_ppo_cfg import (
@@ -26,6 +27,9 @@ on_policy_runner_module.DM2ActorCriticRecurrent = (
 )
 on_policy_runner_module.DM2MessageActorCriticRecurrent = (
     DM2MessageActorCriticRecurrent
+)
+on_policy_runner_module.DM2RecurrentGraphActorCriticRecurrent = (
+    DM2RecurrentGraphActorCriticRecurrent
 )
 
 
@@ -81,6 +85,28 @@ class DM2MessageCPGUnitreeA1MixedPPORunnerCfg(
 
     policy = RslRlPpoActorCriticRecurrentCfg(
         class_name="DM2MessageActorCriticRecurrent",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        init_noise_std=1.0,
+        actor_hidden_dims=[256, 128],
+        critic_hidden_dims=[256, 128],
+        activation="elu",
+    )
+
+
+@configclass
+class DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg(
+    DM2MessageCPGUnitreeA1MixedPPORunnerCfg
+):
+    """V15 relation-aware recurrent-graph DM2 configuration."""
+
+    experiment_name = (
+        "dm2_v15_recurrent_graph_static_mixed_cpg_unitree_a1"
+    )
+
+    policy = RslRlPpoActorCriticRecurrentCfg(
+        class_name="DM2RecurrentGraphActorCriticRecurrent",
         rnn_type="lstm",
         rnn_hidden_dim=256,
         rnn_num_layers=1,
