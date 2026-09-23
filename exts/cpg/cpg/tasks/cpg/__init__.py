@@ -788,3 +788,84 @@ gym.register(
         ),
     },
 )
+
+
+gym.register(
+    id="DM2-Frozen-Residual-CPG-Mixed-Unitree-A1-K1-v0",
+    entry_point=(
+        "cpg.tasks.cpg.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "cpg.tasks.cpg.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1MixedEnvCfg_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            "cpg.tasks.cpg.agents."
+            "dm2_rsl_rl_ppo_cfg:"
+            "DM2FrozenResidualCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-Frozen-Residual-CPG-Flat-Unitree-A1-K1-Eval-v0",
+    entry_point=(
+        "cpg.tasks.cpg.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "cpg.tasks.cpg.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1FlatEnvCfg_EVAL_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            "cpg.tasks.cpg.agents."
+            "dm2_rsl_rl_ppo_cfg:"
+            "DM2FrozenResidualCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-Frozen-Residual-CPG-Rough-Unitree-A1-K1-Eval-Mild-v0",
+    entry_point=(
+        "cpg.tasks.cpg.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "cpg.tasks.cpg.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1RoughEnvCfg_EVAL_Mild_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            "cpg.tasks.cpg.agents."
+            "dm2_rsl_rl_ppo_cfg:"
+            "DM2FrozenResidualCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id="DM2-Frozen-Residual-CPG-Rough-Unitree-A1-K1-Eval-Moderate-v0",
+    entry_point=(
+        "cpg.tasks.cpg.dm2_cpg_env:"
+        "DM2CPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            "cpg.tasks.cpg.dm2_cpg_env_cfg:"
+            "DM2CPGUnitreeA1RoughEnvCfg_EVAL_Moderate_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            "cpg.tasks.cpg.agents."
+            "dm2_rsl_rl_ppo_cfg:"
+            "DM2FrozenResidualCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)

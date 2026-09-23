@@ -12,6 +12,7 @@ from modules.dm2_actor_critic import (
     DM2ActorCriticRecurrent,
     DM2MessageActorCriticRecurrent,
     DM2StructuredMessageActorCriticRecurrent,
+    DM2FrozenResidualActorCriticRecurrent,
 )
 
 from .rsl_rl_ppo_cfg import (
@@ -30,6 +31,9 @@ on_policy_runner_module.DM2MessageActorCriticRecurrent = (
 )
 on_policy_runner_module.DM2StructuredMessageActorCriticRecurrent = (
     DM2StructuredMessageActorCriticRecurrent
+)
+on_policy_runner_module.DM2FrozenResidualActorCriticRecurrent = (
+    DM2FrozenResidualActorCriticRecurrent
 )
 
 
@@ -117,3 +121,37 @@ class DM2StructuredMessageCPGUnitreeA1MixedPPORunnerCfg(
         critic_hidden_dims=[256, 128],
         activation="elu",
     )
+
+
+@configclass
+class DM2FrozenResidualCPGUnitreeA1MixedPPORunnerCfg(
+    DM2MessageCPGUnitreeA1MixedPPORunnerCfg
+):
+    """V14 frozen V12 policy with structured residual coordination."""
+
+    max_iterations = 150
+    save_interval = 10
+    experiment_name = (
+        "dm2_v14_frozen_residual_static_mixed_cpg_unitree_a1"
+    )
+
+    policy = RslRlPpoActorCriticRecurrentCfg(
+        class_name=(
+            "DM2FrozenResidualActorCriticRecurrent"
+        ),
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        init_noise_std=1.0,
+        actor_hidden_dims=[256, 128],
+        critic_hidden_dims=[256, 128],
+        activation="elu",
+    )
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Conservative optimization because the residual is initialized
+        # on top of an already useful locomotion controller.
+        self.algorithm.learning_rate = 1.0e-4
+        self.algorithm.entropy_coef = 1.0e-4

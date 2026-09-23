@@ -222,11 +222,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         agent_cfg.resume
         or agent_cfg.algorithm.class_name == "Distillation"
     ):
-        resume_path = get_checkpoint_path(
-            log_root_path,
-            agent_cfg.load_run,
-            agent_cfg.load_checkpoint,
-        )
+        if args_cli.checkpoint and os.path.isfile(args_cli.checkpoint):
+            resume_path = os.path.abspath(args_cli.checkpoint)
+            print("[INFO]: Using external checkpoint path:", resume_path)
+        else:
+            resume_path = get_checkpoint_path(
+                log_root_path,
+                agent_cfg.load_run,
+                agent_cfg.load_checkpoint,
+            )
 
     # wrap for video recording
     if args_cli.video:
@@ -253,7 +257,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             f"[INFO]: Loading model checkpoint from: "
             f"{resume_path}"
         )
-        runner.load(resume_path)
+        runner.load(
+            resume_path,
+            load_optimizer=not args_cli.reset_optimizer,
+        )
 
         if args_cli.reset_optimizer:
             optimizer = runner.alg.optimizer

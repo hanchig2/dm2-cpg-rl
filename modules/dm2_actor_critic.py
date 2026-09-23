@@ -749,3 +749,224 @@ class DM2StructuredMessageActorCriticRecurrent(
             adapted_state_dict,
             strict=strict,
         )
+
+
+class DM2FrozenResidualActorCriticRecurrent(
+    DM2MessageActorCriticRecurrent
+):
+    """Frozen V12 policy with a structured residual coordinator.
+
+    The V12 actor and actor LSTM remain frozen. A small shared residual
+    network receives the target leg feature followed by contralateral,
+    ipsilateral, and diagonal recurrent features. Its output is bounded
+    to +/- residual_action_scale and added to the frozen V12 action.
+    """
+
+    RELATION_INDICES = (
+        (1, 2, 3),  # FL: FR, RL, RR
+        (0, 3, 2),  # FR: FL, RR, RL
+        (3, 0, 1),  # RL: RR, FL, FR
+        (2, 1, 0),  # RR: RL, FR, FL
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.num_legs != 4:
+            raise ValueError(
+                "Frozen residual DM2 currently requires four legs."
+            )
+
+        self.residual_action_scale = 0.1
+        residual_hidden_dim = 128
+
+        reference_weight = self.actor[0].weight
+
+        self.residual_actor = nn.Sequential(
+            nn.Linear(
+                4 * self.rnn_hidden_dim,
+                residual_hidden_dim,
+                device=reference_weight.device,
+                dtype=reference_weight.dtype,
+            ),
+            nn.ELU(),
+            nn.Linear(
+                residual_hidden_dim,
+                self.local_action_dim,
+                device=reference_weight.device,
+                dtype=reference_weight.dtype,
+            ),
+        )
+
+        # Zero output initialization makes the initial V14 policy
+        # exactly equal to the loaded V12 policy.
+        with torch.no_grad():
+            self.residual_actor[-1].weight.zero_()
+            self.residual_actor[-1].bias.zero_()
+
+        self.register_buffer(
+            "_residual_relation_indices",
+            torch.tensor(
+                self.RELATION_INDICES,
+                dtype=torch.long,
+            ),
+            persistent=False,
+        )
+
+        # Preserve the V12 locomotion controller exactly. The critic,
+        # critic memory, action noise, and residual actor remain
+        # trainable.
+        for parameter in self.actor.parameters():
+            parameter.requires_grad_(False)
+
+        for parameter in self.memory_a.parameters():
+            parameter.requires_grad_(False)
+
+        trainable_count = sum(
+            parameter.numel()
+            for parameter in self.parameters()
+            if parameter.requires_grad
+        )
+        frozen_count = sum(
+            parameter.numel()
+            for parameter in self.parameters()
+            if not parameter.requires_grad
+        )
+
+        print(
+            "DM2 frozen residual actor: "
+            f"{self.residual_actor}"
+        )
+        print(
+            "DM2 residual relation order: "
+            "contralateral, ipsilateral, diagonal"
+        )
+        print(
+            "DM2 residual action scale: "
+            f"{self.residual_action_scale}"
+        )
+        print(
+            "DM2 trainable/frozen parameters: "
+            f"{trainable_count}/{frozen_count}"
+        )
+
+    def _structured_residual_features(
+        self,
+        packed_actor_features: torch.Tensor,
+    ) -> torch.Tensor:
+        expected_size = (
+            self.num_legs * self.rnn_hidden_dim
+        )
+
+        if (
+            packed_actor_features.shape[-1]
+            != expected_size
+        ):
+            raise ValueError(
+                "Expected packed actor feature size "
+                f"{expected_size}, got "
+                f"{packed_actor_features.shape[-1]}."
+            )
+
+        local_features = packed_actor_features.reshape(
+            *packed_actor_features.shape[:-1],
+            self.num_legs,
+            self.rnn_hidden_dim,
+        )
+
+        relation_indices = (
+            self._residual_relation_indices.to(
+                device=local_features.device
+            )
+        )
+
+        relation_features = local_features[
+            ...,
+            relation_indices,
+            :,
+        ]
+
+        if relation_features.shape[-2] != 3:
+            raise RuntimeError(
+                "Expected three relation features, got "
+                f"{tuple(relation_features.shape)}."
+            )
+
+        return torch.cat(
+            (
+                local_features,
+                relation_features[..., 0, :],
+                relation_features[..., 1, :],
+                relation_features[..., 2, :],
+            ),
+            dim=-1,
+        )
+
+    def _compute_action_mean(
+        self,
+        packed_actor_features: torch.Tensor,
+    ) -> torch.Tensor:
+        # Frozen V12 self-plus-mean-message action.
+        base_action_mean = super()._compute_action_mean(
+            packed_actor_features
+        )
+
+        structured_features = (
+            self._structured_residual_features(
+                packed_actor_features
+            )
+        )
+
+        local_residual = (
+            self.residual_action_scale
+            * torch.tanh(
+                self.residual_actor(
+                    structured_features
+                )
+            )
+        )
+
+        packed_residual = torch.cat(
+            (
+                local_residual[..., 0],
+                local_residual[..., 1],
+                local_residual[..., 2],
+            ),
+            dim=-1,
+        )
+
+        return base_action_mean + packed_residual
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+        assign: bool = False,
+    ):
+        """Load V12 or native V14 checkpoints strictly."""
+
+        adapted_state_dict = state_dict.copy()
+        current_state_dict = self.state_dict()
+
+        inserted_keys = []
+
+        for key, value in current_state_dict.items():
+            if (
+                key.startswith("residual_actor.")
+                and key not in adapted_state_dict
+            ):
+                adapted_state_dict[key] = (
+                    value.detach().clone()
+                )
+                inserted_keys.append(key)
+
+        if inserted_keys:
+            print(
+                "[INFO]: Initialized missing V14 residual "
+                f"parameters: {inserted_keys}"
+            )
+
+        return super().load_state_dict(
+            adapted_state_dict,
+            strict=strict,
+        )
