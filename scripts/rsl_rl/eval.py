@@ -166,12 +166,19 @@ def main():
         # version 2.2 and below
         policy_nn = ppo_runner.alg.actor_critic
 
-    # Export standard policies using Isaac Lab's generic exporter.
-    # DM2 requires a dedicated exporter for its shared per-leg memory.
-    if agent_cfg.policy.class_name == "DM2ActorCriticRecurrent":
+    # Export standard policies using Isaac Lab's generic exporter. DM2
+    # policies require a dedicated exporter because their shared per-leg
+    # recurrent memory consumes one local observation at a time rather
+    # than the complete flattened actor observation.
+    dm2_policy_classes = {
+        "DM2ActorCriticRecurrent",
+        "DM2GlobalActorCriticRecurrent",
+    }
+
+    if agent_cfg.policy.class_name in dm2_policy_classes:
         print(
             "[INFO]: Skipping JIT/ONNX export for "
-            "DM2ActorCriticRecurrent."
+            f"{agent_cfg.policy.class_name}."
         )
     else:
         export_model_dir = os.path.join(
