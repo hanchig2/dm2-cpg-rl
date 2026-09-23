@@ -8,6 +8,7 @@ from rsl_rl.modules import ActorCritic
 from rsl_rl.networks import Memory
 from rsl_rl.utils import resolve_nn_activation
 
+from modules.dm2 import GLOBAL_LEG_OBS_DIM
 from modules.dm2_memory import SharedLegMemory
 
 
@@ -232,4 +233,42 @@ class DM2ActorCriticRecurrent(ActorCritic):
         return (
             self.memory_a.hidden_states,
             self.memory_c.hidden_states,
+        )
+
+
+class DM2GlobalActorCriticRecurrent(
+    DM2ActorCriticRecurrent
+):
+    """Shared per-leg actor receiving global observations.
+
+    Every leg receives the same 83-D global observation together
+    with its unique 2-D leg identifier. Actor parameters remain
+    shared and recurrent states remain separate.
+    """
+
+    def __init__(
+        self,
+        num_actor_obs: int,
+        num_critic_obs: int,
+        num_actions: int,
+        **kwargs,
+    ):
+        configured_local_dim = kwargs.pop(
+            "local_obs_dim",
+            GLOBAL_LEG_OBS_DIM,
+        )
+
+        if configured_local_dim != GLOBAL_LEG_OBS_DIM:
+            raise ValueError(
+                "DM2GlobalActorCriticRecurrent requires "
+                f"local_obs_dim={GLOBAL_LEG_OBS_DIM}, "
+                f"got {configured_local_dim}."
+            )
+
+        super().__init__(
+            num_actor_obs=num_actor_obs,
+            num_critic_obs=num_critic_obs,
+            num_actions=num_actions,
+            local_obs_dim=GLOBAL_LEG_OBS_DIM,
+            **kwargs,
         )

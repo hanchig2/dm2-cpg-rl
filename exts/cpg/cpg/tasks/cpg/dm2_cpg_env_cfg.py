@@ -6,7 +6,12 @@
 from isaaclab.utils import configclass
 
 from modules.cpg import CPGCfg
-from modules.dm2 import GLOBAL_OBS_DIM, LOCAL_OBS_DIM, NUM_LEGS
+from modules.dm2 import (
+    GLOBAL_LEG_OBS_DIM,
+    GLOBAL_OBS_DIM,
+    LOCAL_OBS_DIM,
+    NUM_LEGS,
+)
 
 from .cpg_env_cfg import (
     CPGCouplingK1Cfg,
@@ -57,6 +62,18 @@ class DM2CPGUnitreeA1MixedEnvCfg_K1(
     """DM2 K=1 training on the static terrain mixture."""
 
     observation_space = NUM_LEGS * LOCAL_OBS_DIM
+    state_space = GLOBAL_OBS_DIM
+
+
+@configclass
+class DM2GlobalCPGUnitreeA1MixedEnvCfg_K1(
+    CPGUnitreeA1MixedEnvCfg_K1
+):
+    """Global-observation diagnostic on the V8 terrain mixture."""
+
+    observation_space = (
+        NUM_LEGS * GLOBAL_LEG_OBS_DIM
+    )
     state_space = GLOBAL_OBS_DIM
 
 
@@ -133,3 +150,22 @@ class DM2CPGUnitreeA1RoughEnvCfg_EVAL_Moderate_K1(
     def __post_init__(self):
         super().__post_init__()
         self.terrain.terrain_generator = EVAL_ROUGH_MODERATE_TERRAINS_CFG
+
+
+@configclass
+class DM2GlobalCPGUnitreeA1RoughEnvCfg_EVAL_Moderate_K1(
+    CPGUnitreeA1RoughEnvCfg_EVAL_IdealRough
+):
+    """Global-observation diagnostic on moderate random rough."""
+
+    observation_space = (
+        NUM_LEGS * GLOBAL_LEG_OBS_DIM
+    )
+    state_space = GLOBAL_OBS_DIM
+    cpg_config: CPGCfg = CPGCouplingK1Cfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.terrain.terrain_generator = (
+            EVAL_ROUGH_MODERATE_TERRAINS_CFG
+        )

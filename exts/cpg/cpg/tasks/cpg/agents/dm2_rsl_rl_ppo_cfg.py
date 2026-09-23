@@ -8,7 +8,10 @@ import rsl_rl.runners.on_policy_runner as on_policy_runner_module
 from isaaclab.utils import configclass
 from isaaclab_rl.rsl_rl import RslRlPpoActorCriticRecurrentCfg
 
-from modules.dm2_actor_critic import DM2ActorCriticRecurrent
+from modules.dm2_actor_critic import (
+    DM2ActorCriticRecurrent,
+    DM2GlobalActorCriticRecurrent,
+)
 
 from .rsl_rl_ppo_cfg import (
     CPGUnitreeA1FlatPPORunnerCfg,
@@ -22,6 +25,9 @@ on_policy_runner_module.DM2ActorCriticRecurrent = (
     DM2ActorCriticRecurrent
 )
 
+on_policy_runner_module.DM2GlobalActorCriticRecurrent = (
+    DM2GlobalActorCriticRecurrent
+)
 
 @configclass
 class DM2CPGUnitreeA1FlatPPORunnerCfg(
@@ -54,6 +60,30 @@ class DM2CPGUnitreeA1MixedPPORunnerCfg(
 
     policy = RslRlPpoActorCriticRecurrentCfg(
         class_name="DM2ActorCriticRecurrent",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        init_noise_std=1.0,
+        actor_hidden_dims=[256, 128],
+        critic_hidden_dims=[256, 128],
+        activation="elu",
+    )
+
+
+@configclass
+class DM2GlobalCPGUnitreeA1MixedPPORunnerCfg(
+    CPGUnitreeA1MixedPPORunnerCfg
+):
+    """V10 global-observation architectural diagnostic."""
+
+    max_iterations = 300
+    save_interval = 10
+    experiment_name = (
+        "dm2_v10_global_observation_diagnostic"
+    )
+
+    policy = RslRlPpoActorCriticRecurrentCfg(
+        class_name="DM2GlobalActorCriticRecurrent",
         rnn_type="lstm",
         rnn_hidden_dim=256,
         rnn_num_layers=1,

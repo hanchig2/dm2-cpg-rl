@@ -625,3 +625,47 @@ gym.register(
         ),
     },
 )
+
+# V10 diagnostic: parameter-shared per-leg actor with complete
+# global observations and separate recurrent state for each leg.
+gym.register(
+    id="DM2-GlobalObs-CPG-Mixed-Unitree-A1-K1-v0",
+    entry_point=(
+        f"{__name__}.dm2_cpg_env:"
+        "DM2GlobalCPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2GlobalCPGUnitreeA1MixedEnvCfg_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2GlobalCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)
+
+gym.register(
+    id=(
+        "DM2-GlobalObs-CPG-Rough-Unitree-A1-"
+        "K1-Eval-Moderate-v0"
+    ),
+    entry_point=(
+        f"{__name__}.dm2_cpg_env:"
+        "DM2GlobalCPGUnitreeA1Env"
+    ),
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": (
+            f"{__name__}.dm2_cpg_env_cfg:"
+            "DM2GlobalCPGUnitreeA1RoughEnvCfg_"
+            "EVAL_Moderate_K1"
+        ),
+        "rsl_rl_cfg_entry_point": (
+            f"{agents.__name__}.dm2_rsl_rl_ppo_cfg:"
+            "DM2GlobalCPGUnitreeA1MixedPPORunnerCfg"
+        ),
+    },
+)

@@ -9,6 +9,7 @@ LOCAL_PRIVATE_OBS_DIM = 32
 LEG_ID_DIM = 2
 COORDINATION_OBS_DIM = 12
 LOCAL_OBS_DIM = 46
+GLOBAL_LEG_OBS_DIM = GLOBAL_OBS_DIM + LEG_ID_DIM
 LOCAL_ACTION_DIM = 3
 
 LEG_NAMES = ("FL", "FR", "RL", "RR")
@@ -125,6 +126,83 @@ class DM2ObservationMapper:
         return torch.cat(
             (local_observations, leg_ids, coordination),
             dim=-1,
+        )
+
+    def build_global_leg_observations(
+        self,
+        global_observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Give every leg the full global observation and its leg ID.
+
+        This is an architectural diagnostic, not the final localized
+        DM2 observation design.
+        """
+
+        if global_observations.ndim != 2:
+            raise ValueError(
+                "Expected global observations with shape [N, 83], "
+                f"got {tuple(global_observations.shape)}."
+            )
+
+        if global_observations.shape[-1] != GLOBAL_OBS_DIM:
+            raise ValueError(
+                f"Expected {GLOBAL_OBS_DIM} global observation dimensions, "
+                f"got {global_observations.shape[-1]}."
+            )
+
+        num_envs = global_observations.shape[0]
+
+        shared_global_observations = (
+            global_observations.unsqueeze(1).expand(
+                num_envs,
+                NUM_LEGS,
+                GLOBAL_OBS_DIM,
+            )
+        )
+
+        leg_ids = self.leg_ids.to(
+            dtype=global_observations.dtype
+        )
+        leg_ids = leg_ids.unsqueeze(0).expand(
+            num_envs,
+            NUM_LEGS,
+            LEG_ID_DIM,
+        )
+
+        return torch.cat(
+            (
+                shared_global_observations,
+                leg_ids,
+            ),
+            dim=-1,
+        )
+
+    def flatten_global_leg_observations(
+        self,
+        global_leg_observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Convert [N, 4, 85] observations into [N, 340]."""
+
+        expected_shape = (
+            NUM_LEGS,
+            GLOBAL_LEG_OBS_DIM,
+        )
+
+        if (
+            global_leg_observations.ndim != 3
+            or tuple(
+                global_leg_observations.shape[1:]
+            ) != expected_shape
+        ):
+            raise ValueError(
+                "Expected global leg observations with shape "
+                f"[N, {NUM_LEGS}, {GLOBAL_LEG_OBS_DIM}], "
+                f"got {tuple(global_leg_observations.shape)}."
+            )
+
+        return global_leg_observations.reshape(
+            global_leg_observations.shape[0],
+            NUM_LEGS * GLOBAL_LEG_OBS_DIM,
         )
 
     def flatten_local_observations(

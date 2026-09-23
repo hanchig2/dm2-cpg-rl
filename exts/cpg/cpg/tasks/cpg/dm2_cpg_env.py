@@ -38,3 +38,37 @@ class DM2CPGUnitreeA1Env(CPGUnitreeA1Env):
 
         # Critic remains the centralized 83-D observation.
         return observations
+
+
+class DM2GlobalCPGUnitreeA1Env(CPGUnitreeA1Env):
+    """Diagnostic DM2 environment with global actor observations."""
+
+    def _get_observations(self):
+        observations = super()._get_observations()
+
+        if not hasattr(
+            self,
+            "_dm2_global_observation_mapper",
+        ):
+            self._dm2_global_observation_mapper = (
+                DM2ObservationMapper(
+                    device=self.device
+                )
+            )
+
+        global_leg_observations = (
+            self._dm2_global_observation_mapper
+            .build_global_leg_observations(
+                observations["policy"]
+            )
+        )
+
+        observations["policy"] = (
+            self._dm2_global_observation_mapper
+            .flatten_global_leg_observations(
+                global_leg_observations
+            )
+        )
+
+        # The critic remains the original centralized observation.
+        return observations
