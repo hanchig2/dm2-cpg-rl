@@ -168,7 +168,10 @@ def main():
 
     # Export standard policies using Isaac Lab's generic exporter.
     # DM2 requires a dedicated exporter for its shared per-leg memory.
-    if agent_cfg.policy.class_name == "DM2ActorCriticRecurrent":
+    if agent_cfg.policy.class_name in {
+        "DM2ActorCriticRecurrent",
+        "DM2MessageActorCriticRecurrent",
+    }:
         print(
             "[INFO]: Skipping JIT/ONNX export for "
             "DM2ActorCriticRecurrent."

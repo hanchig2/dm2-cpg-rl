@@ -233,3 +233,192 @@ class DM2ActorCriticRecurrent(ActorCritic):
             self.memory_a.hidden_states,
             self.memory_c.hidden_states,
         )
+
+class DM2MessageActorCriticRecurrent(
+    DM2ActorCriticRecurrent
+):
+    """DM2 actor with low-bandwidth recurrent inter-leg messages.
+
+    Each leg receives its own recurrent feature and the mean recurrent
+    feature of the other legs. The actor remains parameter-shared.
+
+    When a legacy DM2 checkpoint is loaded, the original actor weights
+    are copied into the local-feature columns and all new message
+    columns are initialized to zero. The initial deterministic policy
+    is therefore identical to the legacy policy.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        legacy_first_layer = self.actor[0]
+
+        if not isinstance(
+            legacy_first_layer,
+            nn.Linear,
+        ):
+            raise TypeError(
+                "Expected actor[0] to be nn.Linear."
+            )
+
+        if (
+            legacy_first_layer.in_features
+            != self.rnn_hidden_dim
+        ):
+            raise ValueError(
+                "Unexpected legacy actor input size: "
+                f"{legacy_first_layer.in_features}."
+            )
+
+        message_first_layer = nn.Linear(
+            2 * self.rnn_hidden_dim,
+            legacy_first_layer.out_features,
+            bias=legacy_first_layer.bias is not None,
+            device=legacy_first_layer.weight.device,
+            dtype=legacy_first_layer.weight.dtype,
+        )
+
+        with torch.no_grad():
+            message_first_layer.weight.zero_()
+            message_first_layer.weight[
+                :,
+                :self.rnn_hidden_dim,
+            ].copy_(
+                legacy_first_layer.weight
+            )
+
+            if legacy_first_layer.bias is not None:
+                message_first_layer.bias.copy_(
+                    legacy_first_layer.bias
+                )
+
+        self.actor[0] = message_first_layer
+
+        print(
+            "DM2 message actor first layer: "
+            f"{self.actor[0]}"
+        )
+
+    def _compute_action_mean(
+        self,
+        packed_actor_features: torch.Tensor,
+    ) -> torch.Tensor:
+        """Apply shared actor using local and other-leg features."""
+
+        expected_size = (
+            self.num_legs * self.rnn_hidden_dim
+        )
+
+        if (
+            packed_actor_features.shape[-1]
+            != expected_size
+        ):
+            raise ValueError(
+                "Expected packed actor feature size "
+                f"{expected_size}, got "
+                f"{packed_actor_features.shape[-1]}."
+            )
+
+        local_features = (
+            packed_actor_features.reshape(
+                *packed_actor_features.shape[:-1],
+                self.num_legs,
+                self.rnn_hidden_dim,
+            )
+        )
+
+        if self.num_legs <= 1:
+            other_leg_message = torch.zeros_like(
+                local_features
+            )
+        else:
+            summed_features = torch.sum(
+                local_features,
+                dim=-2,
+                keepdim=True,
+            )
+
+            other_leg_message = (
+                summed_features - local_features
+            ) / float(self.num_legs - 1)
+
+        actor_input = torch.cat(
+            (
+                local_features,
+                other_leg_message,
+            ),
+            dim=-1,
+        )
+
+        local_action_means = self.actor(
+            actor_input
+        )
+
+        return torch.cat(
+            (
+                local_action_means[..., 0],
+                local_action_means[..., 1],
+                local_action_means[..., 2],
+            ),
+            dim=-1,
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+        assign: bool = False,
+    ):
+        """Expand a legacy DM2 actor checkpoint without changing behavior."""
+
+        adapted_state_dict = state_dict.copy()
+
+        weight_key = "actor.0.weight"
+        source_weight = adapted_state_dict.get(
+            weight_key
+        )
+        target_weight = self.actor[0].weight
+
+        legacy_shape = (
+            target_weight.shape[0],
+            self.rnn_hidden_dim,
+        )
+
+        if (
+            source_weight is not None
+            and tuple(source_weight.shape)
+            == legacy_shape
+            and tuple(target_weight.shape)
+            == (
+                target_weight.shape[0],
+                2 * self.rnn_hidden_dim,
+            )
+        ):
+            expanded_weight = source_weight.new_zeros(
+                target_weight.shape
+            )
+
+            expanded_weight[
+                :,
+                :self.rnn_hidden_dim,
+            ].copy_(source_weight)
+
+            adapted_state_dict[weight_key] = (
+                expanded_weight
+            )
+
+            print(
+                "[INFO]: Expanded legacy "
+                "actor.0.weight from "
+                f"{tuple(source_weight.shape)} to "
+                f"{tuple(expanded_weight.shape)}; "
+                "message columns initialized to zero."
+            )
+
+        # RSL-RL's ActorCritic overrides load_state_dict with
+        # the older (state_dict, strict) signature, so do not pass
+        # PyTorch's newer assign argument through to the parent.
+        return super().load_state_dict(
+            adapted_state_dict,
+            strict=strict,
+        )
