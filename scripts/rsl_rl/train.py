@@ -25,6 +25,45 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+parser.add_argument(
+    "--warm_start_checkpoint",
+    type=str,
+    default=None,
+    help=(
+        "Load policy, critic, and observation-normalizer state "
+        "from an explicit checkpoint path."
+    ),
+)
+parser.add_argument(
+    "--reset_optimizer",
+    action="store_true",
+    default=False,
+    help=(
+        "Clear optimizer state after loading a checkpoint and "
+        "restore the configured learning rate."
+    ),
+)
+parser.add_argument(
+    "--reset_iteration",
+    action="store_true",
+    default=False,
+    help=(
+        "Reset the learning-iteration counter after loading so "
+        "fine-tuning checkpoints start at model_0.pt."
+    ),
+)
+parser.add_argument(
+    "--finetune_learning_rate",
+    type=float,
+    default=None,
+    help="Override the PPO learning rate for fine-tuning.",
+)
+parser.add_argument(
+    "--finetune_entropy_coef",
+    type=float,
+    default=None,
+    help="Override the PPO entropy coefficient for fine-tuning.",
+)
 parser.add_argument("--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -106,6 +145,26 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         args_cli.max_iterations if args_cli.max_iterations is not None else agent_cfg.max_iterations
     )
 
+    if args_cli.finetune_learning_rate is not None:
+        if args_cli.finetune_learning_rate <= 0.0:
+            raise ValueError(
+                "--finetune_learning_rate must be positive."
+            )
+
+        agent_cfg.algorithm.learning_rate = (
+            args_cli.finetune_learning_rate
+        )
+
+    if args_cli.finetune_entropy_coef is not None:
+        if args_cli.finetune_entropy_coef < 0.0:
+            raise ValueError(
+                "--finetune_entropy_coef cannot be negative."
+            )
+
+        agent_cfg.algorithm.entropy_coef = (
+            args_cli.finetune_entropy_coef
+        )
+
     # set the environment seed
     # note: certain randomizations occur in the environment initialization so we set the seed here
     env_cfg.seed = agent_cfg.seed
@@ -140,9 +199,34 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if isinstance(env.unwrapped, DirectMARLEnv):
         env = multi_agent_to_single_agent(env)
 
-    # save resume path before creating a new log_dir
-    if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
-        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+    # Resolve checkpoint before creating the runner.
+    load_checkpoint = (
+        args_cli.warm_start_checkpoint is not None
+        or agent_cfg.resume
+        or agent_cfg.algorithm.class_name == "Distillation"
+    )
+
+    if args_cli.warm_start_checkpoint is not None:
+        resume_path = os.path.abspath(
+            os.path.expanduser(
+                args_cli.warm_start_checkpoint
+            )
+        )
+
+        if not os.path.isfile(resume_path):
+            raise FileNotFoundError(
+                "Warm-start checkpoint does not exist: "
+                f"{resume_path}"
+            )
+    elif (
+        agent_cfg.resume
+        or agent_cfg.algorithm.class_name == "Distillation"
+    ):
+        resume_path = get_checkpoint_path(
+            log_root_path,
+            agent_cfg.load_run,
+            agent_cfg.load_checkpoint,
+        )
 
     # wrap for video recording
     if args_cli.video:
@@ -163,11 +247,43 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
-    # load the checkpoint
-    if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
-        print(f"[INFO]: Loading model checkpoint from: {resume_path}")
-        # load previously trained model
+    # Load model and observation-normalizer state.
+    if load_checkpoint:
+        print(
+            f"[INFO]: Loading model checkpoint from: "
+            f"{resume_path}"
+        )
         runner.load(resume_path)
+
+        if args_cli.reset_optimizer:
+            optimizer = runner.alg.optimizer
+            optimizer.state.clear()
+
+            configured_learning_rate = (
+                agent_cfg.algorithm.learning_rate
+            )
+
+            for parameter_group in optimizer.param_groups:
+                parameter_group["lr"] = (
+                    configured_learning_rate
+                )
+
+            if hasattr(runner.alg, "learning_rate"):
+                runner.alg.learning_rate = (
+                    configured_learning_rate
+                )
+
+            print(
+                "[INFO]: Reset optimizer state; "
+                f"learning rate={configured_learning_rate:.8g}"
+            )
+
+        if args_cli.reset_iteration:
+            runner.current_learning_iteration = 0
+
+            print(
+                "[INFO]: Reset learning iteration to zero."
+            )
 
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
