@@ -422,3 +422,330 @@ class DM2MessageActorCriticRecurrent(
             adapted_state_dict,
             strict=strict,
         )
+
+
+class DM2StructuredMessageActorCriticRecurrent(
+    DM2MessageActorCriticRecurrent
+):
+    """DM2 actor with relation-preserving inter-leg messages.
+
+    For each target leg, the shared actor receives four recurrent
+    feature vectors in this order:
+
+    1. the target leg's own feature;
+    2. the contralateral leg's feature;
+    3. the ipsilateral leg's feature;
+    4. the diagonal leg's feature.
+
+    Leg order is FL, FR, RL, RR. Loading a V12 mean-message
+    checkpoint divides its message weights equally across the three
+    relation blocks, preserving the V12 policy exactly at
+    initialization.
+    """
+
+    RELATION_INDICES = (
+        (1, 2, 3),  # FL: FR, RL, RR
+        (0, 3, 2),  # FR: FL, RR, RL
+        (3, 0, 1),  # RL: RR, FL, FR
+        (2, 1, 0),  # RR: RL, FR, FL
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.num_legs != 4:
+            raise ValueError(
+                "Structured DM2 currently requires four legs."
+            )
+
+        message_first_layer = self.actor[0]
+
+        if not isinstance(
+            message_first_layer,
+            nn.Linear,
+        ):
+            raise TypeError(
+                "Expected actor[0] to be nn.Linear."
+            )
+
+        expected_input = 2 * self.rnn_hidden_dim
+
+        if (
+            message_first_layer.in_features
+            != expected_input
+        ):
+            raise ValueError(
+                "Unexpected V12 actor input size: "
+                f"{message_first_layer.in_features}."
+            )
+
+        structured_first_layer = nn.Linear(
+            4 * self.rnn_hidden_dim,
+            message_first_layer.out_features,
+            bias=message_first_layer.bias is not None,
+            device=message_first_layer.weight.device,
+            dtype=message_first_layer.weight.dtype,
+        )
+
+        hidden_dim = self.rnn_hidden_dim
+
+        with torch.no_grad():
+            structured_first_layer.weight.zero_()
+
+            # Preserve the local-feature contribution.
+            structured_first_layer.weight[
+                :,
+                :hidden_dim,
+            ].copy_(
+                message_first_layer.weight[
+                    :,
+                    :hidden_dim,
+                ]
+            )
+
+            # Split the V12 mean-message contribution equally across
+            # contralateral, ipsilateral, and diagonal blocks.
+            relation_weight = (
+                message_first_layer.weight[
+                    :,
+                    hidden_dim:2 * hidden_dim,
+                ]
+                / 3.0
+            )
+
+            for relation in range(3):
+                start = (
+                    relation + 1
+                ) * hidden_dim
+
+                structured_first_layer.weight[
+                    :,
+                    start:start + hidden_dim,
+                ].copy_(relation_weight)
+
+            if message_first_layer.bias is not None:
+                structured_first_layer.bias.copy_(
+                    message_first_layer.bias
+                )
+
+        self.actor[0] = structured_first_layer
+
+        self.register_buffer(
+            "_relation_indices",
+            torch.tensor(
+                self.RELATION_INDICES,
+                dtype=torch.long,
+            ),
+            persistent=False,
+        )
+
+        print(
+            "DM2 structured-message actor first layer: "
+            f"{self.actor[0]}"
+        )
+        print(
+            "DM2 structured relation order: "
+            "contralateral, ipsilateral, diagonal"
+        )
+
+    def _compute_action_mean(
+        self,
+        packed_actor_features: torch.Tensor,
+    ) -> torch.Tensor:
+        """Apply the shared actor with relation-specific messages."""
+
+        expected_size = (
+            self.num_legs * self.rnn_hidden_dim
+        )
+
+        if (
+            packed_actor_features.shape[-1]
+            != expected_size
+        ):
+            raise ValueError(
+                "Expected packed actor feature size "
+                f"{expected_size}, got "
+                f"{packed_actor_features.shape[-1]}."
+            )
+
+        local_features = (
+            packed_actor_features.reshape(
+                *packed_actor_features.shape[:-1],
+                self.num_legs,
+                self.rnn_hidden_dim,
+            )
+        )
+
+        relation_indices = (
+            self._relation_indices.to(
+                device=local_features.device
+            )
+        )
+
+        relation_features = local_features[
+            ...,
+            relation_indices,
+            :,
+        ]
+
+        if relation_features.shape[-2] != 3:
+            raise RuntimeError(
+                "Expected three relation messages, got "
+                f"{tuple(relation_features.shape)}."
+            )
+
+        contralateral = relation_features[
+            ...,
+            0,
+            :,
+        ]
+        ipsilateral = relation_features[
+            ...,
+            1,
+            :,
+        ]
+        diagonal = relation_features[
+            ...,
+            2,
+            :,
+        ]
+
+        actor_input = torch.cat(
+            (
+                local_features,
+                contralateral,
+                ipsilateral,
+                diagonal,
+            ),
+            dim=-1,
+        )
+
+        local_action_means = self.actor(
+            actor_input
+        )
+
+        return torch.cat(
+            (
+                local_action_means[..., 0],
+                local_action_means[..., 1],
+                local_action_means[..., 2],
+            ),
+            dim=-1,
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+        assign: bool = False,
+    ):
+        """Load legacy, V12, or native V13 checkpoints."""
+
+        adapted_state_dict = state_dict.copy()
+
+        weight_key = "actor.0.weight"
+        source_weight = adapted_state_dict.get(
+            weight_key
+        )
+        target_weight = self.actor[0].weight
+
+        hidden_dim = self.rnn_hidden_dim
+
+        legacy_shape = (
+            target_weight.shape[0],
+            hidden_dim,
+        )
+
+        v12_shape = (
+            target_weight.shape[0],
+            2 * hidden_dim,
+        )
+
+        v13_shape = (
+            target_weight.shape[0],
+            4 * hidden_dim,
+        )
+
+        if (
+            source_weight is not None
+            and tuple(target_weight.shape)
+            == v13_shape
+            and tuple(source_weight.shape)
+            == v12_shape
+        ):
+            expanded_weight = source_weight.new_zeros(
+                target_weight.shape
+            )
+
+            expanded_weight[
+                :,
+                :hidden_dim,
+            ].copy_(
+                source_weight[
+                    :,
+                    :hidden_dim,
+                ]
+            )
+
+            relation_weight = (
+                source_weight[
+                    :,
+                    hidden_dim:2 * hidden_dim,
+                ]
+                / 3.0
+            )
+
+            for relation in range(3):
+                start = (
+                    relation + 1
+                ) * hidden_dim
+
+                expanded_weight[
+                    :,
+                    start:start + hidden_dim,
+                ].copy_(relation_weight)
+
+            adapted_state_dict[weight_key] = (
+                expanded_weight
+            )
+
+            print(
+                "[INFO]: Expanded V12 actor.0.weight "
+                f"from {tuple(source_weight.shape)} to "
+                f"{tuple(expanded_weight.shape)}; "
+                "mean-message weights divided equally "
+                "across three relation blocks."
+            )
+
+        elif (
+            source_weight is not None
+            and tuple(target_weight.shape)
+            == v13_shape
+            and tuple(source_weight.shape)
+            == legacy_shape
+        ):
+            expanded_weight = source_weight.new_zeros(
+                target_weight.shape
+            )
+
+            expanded_weight[
+                :,
+                :hidden_dim,
+            ].copy_(source_weight)
+
+            adapted_state_dict[weight_key] = (
+                expanded_weight
+            )
+
+            print(
+                "[INFO]: Expanded legacy actor.0.weight "
+                f"from {tuple(source_weight.shape)} to "
+                f"{tuple(expanded_weight.shape)}; "
+                "relation-message weights initialized "
+                "to zero."
+            )
+
+        return super().load_state_dict(
+            adapted_state_dict,
+            strict=strict,
+        )
