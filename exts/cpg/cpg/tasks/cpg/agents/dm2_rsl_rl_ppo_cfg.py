@@ -155,3 +155,47 @@ class DM2GraphDistillationCPGUnitreeA1MixedRunnerCfg(
         gradient_length=15,
         learning_rate=1.0e-4,
     )
+
+
+from modules.dm2_actor_critic import (
+    DM2GraphOnlyStudentTeacherRecurrent,
+)
+
+on_policy_runner_module.DM2GraphOnlyStudentTeacherRecurrent = (
+    DM2GraphOnlyStudentTeacherRecurrent
+)
+
+
+@configclass
+class DM2GraphOnlyDistillationCPGUnitreeA1MixedRunnerCfg(
+    DM2GraphDistillationCPGUnitreeA1MixedRunnerCfg
+):
+    """V16 conservative graph-only Central-teacher distillation."""
+
+    max_iterations = 100
+    save_interval = 10
+
+    experiment_name = (
+        "dm2_v16_graph_only_distillation_"
+        "static_mixed_cpg_unitree_a1"
+    )
+
+    policy = RslRlDistillationStudentTeacherRecurrentCfg(
+        class_name=(
+            "DM2GraphOnlyStudentTeacherRecurrent"
+        ),
+        init_noise_std=0.1,
+        student_hidden_dims=[256, 128],
+        teacher_hidden_dims=[256, 128],
+        activation="elu",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        teacher_recurrent=True,
+    )
+
+    algorithm = RslRlDistillationAlgorithmCfg(
+        num_learning_epochs=1,
+        gradient_length=15,
+        learning_rate=2.0e-5,
+    )

@@ -811,3 +811,124 @@ class DM2GraphStudentTeacherRecurrent(nn.Module):
             "Checkpoint is neither a Central PPO checkpoint "
             "nor a V15 distillation checkpoint."
         )
+
+
+class DM2GraphOnlyStudentTeacherRecurrent(
+    DM2GraphStudentTeacherRecurrent
+):
+    """V16: frozen V12 backbone with graph-only distillation.
+
+    Only the recurrent graph gate and candidate parameters are
+    trainable. The inherited V12 actor, actor LSTM, critic, and action
+    noise remain frozen.
+    """
+
+    GRAPH_UPDATE_SCALE = 0.03
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.student.memory_a.graph_update_scale = (
+            self.GRAPH_UPDATE_SCALE
+        )
+
+        self._freeze_student_backbone()
+
+        print(
+            "V16 graph-only update scale: "
+            f"{self.GRAPH_UPDATE_SCALE}"
+        )
+
+    def _freeze_student_backbone(self):
+        trainable_prefixes = (
+            "memory_a.graph_gate.",
+            "memory_a.graph_candidate.",
+        )
+
+        for name, parameter in (
+            self.student.named_parameters()
+        ):
+            parameter.requires_grad_(
+                name.startswith(
+                    trainable_prefixes
+                )
+            )
+
+        trainable_names = [
+            name
+            for name, parameter in (
+                self.student.named_parameters()
+            )
+            if parameter.requires_grad
+        ]
+
+        expected_names = {
+            "memory_a.graph_gate.weight",
+            "memory_a.graph_gate.bias",
+            "memory_a.graph_candidate.weight",
+            "memory_a.graph_candidate.bias",
+        }
+
+        if set(trainable_names) != expected_names:
+            raise RuntimeError(
+                "Unexpected V16 trainable parameters: "
+                f"{trainable_names}"
+            )
+
+        trainable_count = sum(
+            parameter.numel()
+            for parameter in self.student.parameters()
+            if parameter.requires_grad
+        )
+
+        frozen_count = sum(
+            parameter.numel()
+            for parameter in self.student.parameters()
+            if not parameter.requires_grad
+        )
+
+        print(
+            "V16 trainable graph parameters: "
+            f"{trainable_names}"
+        )
+        print(
+            "V16 trainable/frozen student parameters: "
+            f"{trainable_count}/{frozen_count}"
+        )
+
+    def load_student_state_dict(
+        self,
+        state_dict,
+    ):
+        super().load_student_state_dict(
+            state_dict
+        )
+
+        self.student.memory_a.graph_update_scale = (
+            self.GRAPH_UPDATE_SCALE
+        )
+
+        self._freeze_student_backbone()
+
+        print(
+            "[INFO]: Froze the V12 backbone; "
+            "only recurrent graph parameters are trainable."
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+    ):
+        result = super().load_state_dict(
+            state_dict,
+            strict=strict,
+        )
+
+        self.student.memory_a.graph_update_scale = (
+            self.GRAPH_UPDATE_SCALE
+        )
+
+        self._freeze_student_backbone()
+
+        return result

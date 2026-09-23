@@ -173,6 +173,7 @@ def main():
         "DM2MessageActorCriticRecurrent",
         "DM2RecurrentGraphActorCriticRecurrent",
         "DM2GraphStudentTeacherRecurrent",
+        "DM2GraphOnlyStudentTeacherRecurrent",
     }:
         print(
             "[INFO]: Skipping JIT/ONNX export for "
