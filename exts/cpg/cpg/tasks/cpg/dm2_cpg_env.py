@@ -38,3 +38,24 @@ class DM2CPGUnitreeA1Env(CPGUnitreeA1Env):
 
         # Critic remains the centralized 83-D observation.
         return observations
+
+
+class DM2TeacherCPGUnitreeA1Env(
+    DM2CPGUnitreeA1Env
+):
+    """DM2 environment exposing the 83-D global teacher observation."""
+
+    def _get_observations(self):
+        observations = super()._get_observations()
+
+        if "critic" not in observations:
+            raise RuntimeError(
+                "DM2 distillation requires centralized "
+                "critic observations."
+            )
+
+        # RSL-RL Distillation looks specifically for a "teacher"
+        # observation. Student policy remains the 184-D DM2 layout.
+        observations["teacher"] = observations["critic"]
+
+        return observations

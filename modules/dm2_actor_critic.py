@@ -510,3 +510,304 @@ class DM2RecurrentGraphActorCriticRecurrent(
             adapted_state_dict,
             strict=strict,
         )
+
+
+from rsl_rl.modules import (
+    ActorCriticRecurrent as _CentralActorCriticRecurrent,
+)
+
+
+class DM2GraphStudentTeacherRecurrent(nn.Module):
+    """Central recurrent teacher with a V15 graph-DM2 student."""
+
+    is_recurrent = True
+
+    def __init__(
+        self,
+        num_student_obs: int,
+        num_teacher_obs: int,
+        num_actions: int,
+        student_hidden_dims: list[int] = [256, 128],
+        teacher_hidden_dims: list[int] = [256, 128],
+        activation: str = "elu",
+        rnn_type: str = "lstm",
+        rnn_hidden_dim: int = 256,
+        rnn_num_layers: int = 1,
+        init_noise_std: float = 0.1,
+        teacher_recurrent: bool = True,
+        **kwargs,
+    ):
+        super().__init__()
+
+        if not teacher_recurrent:
+            raise ValueError(
+                "V15 requires the Central recurrent teacher."
+            )
+
+        # Accepted by Isaac Lab configs but handled internally here.
+        kwargs.pop("noise_std_type", None)
+
+        if kwargs:
+            print(
+                "DM2GraphStudentTeacherRecurrent got "
+                "unexpected arguments, which will be ignored: "
+                f"{list(kwargs.keys())}"
+            )
+
+        self.distillation_action_noise_std = float(
+            init_noise_std
+        )
+
+        self.student = (
+            DM2RecurrentGraphActorCriticRecurrent(
+                num_actor_obs=num_student_obs,
+                num_critic_obs=num_teacher_obs,
+                num_actions=num_actions,
+                actor_hidden_dims=student_hidden_dims,
+                critic_hidden_dims=student_hidden_dims,
+                activation=activation,
+                rnn_type=rnn_type,
+                rnn_hidden_dim=rnn_hidden_dim,
+                rnn_num_layers=rnn_num_layers,
+                init_noise_std=init_noise_std,
+            )
+        )
+
+        self.teacher = _CentralActorCriticRecurrent(
+            num_actor_obs=num_teacher_obs,
+            num_critic_obs=num_teacher_obs,
+            num_actions=num_actions,
+            actor_hidden_dims=teacher_hidden_dims,
+            critic_hidden_dims=teacher_hidden_dims,
+            activation=activation,
+            rnn_type=rnn_type,
+            rnn_hidden_dim=rnn_hidden_dim,
+            rnn_num_layers=rnn_num_layers,
+            init_noise_std=init_noise_std,
+        )
+
+        for parameter in self.teacher.parameters():
+            parameter.requires_grad_(False)
+
+        self.teacher.eval()
+
+        self.loaded_teacher = False
+        self.loaded_student = False
+
+        print(
+            "V15 distillation student: "
+            "DM2RecurrentGraphActorCriticRecurrent"
+        )
+        print(
+            "V15 distillation teacher: "
+            "ActorCriticRecurrent"
+        )
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+
+        # The teacher must remain deterministic and frozen.
+        self.teacher.eval()
+        return self
+
+    def act(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Sample actions from the student during data collection."""
+
+        return self.student.act(observations)
+
+    def act_inference(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return deterministic student actions for imitation loss."""
+
+        return self.student.act_inference(
+            observations
+        )
+
+    def evaluate(
+        self,
+        teacher_observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return deterministic Central-teacher actions."""
+
+        with torch.no_grad():
+            return self.teacher.act_inference(
+                teacher_observations
+            )
+
+    def reset(
+        self,
+        dones=None,
+        hidden_states=None,
+    ):
+        """Reset or restore student and teacher actor memories."""
+
+        if dones is None:
+            if hidden_states is None:
+                student_hidden = None
+                teacher_hidden = None
+            else:
+                if (
+                    not isinstance(
+                        hidden_states,
+                        (tuple, list),
+                    )
+                    or len(hidden_states) != 2
+                ):
+                    raise ValueError(
+                        "Expected (student, teacher) "
+                        "hidden states."
+                    )
+
+                student_hidden, teacher_hidden = (
+                    hidden_states
+                )
+
+            self.student.memory_a.hidden_states = (
+                student_hidden
+            )
+            self.teacher.memory_a.hidden_states = (
+                teacher_hidden
+            )
+            return
+
+        self.student.memory_a.reset(dones)
+        self.teacher.memory_a.reset(dones)
+
+    def detach_hidden_states(
+        self,
+        dones=None,
+    ):
+        self.student.memory_a.detach_hidden_states(
+            dones
+        )
+        self.teacher.memory_a.detach_hidden_states(
+            dones
+        )
+
+    def get_hidden_states(self):
+        return (
+            self.student.memory_a.hidden_states,
+            self.teacher.memory_a.hidden_states,
+        )
+
+    def load_student_state_dict(
+        self,
+        state_dict,
+    ):
+        """Load V12 into the V15 student with exact parity."""
+
+        self.student.load_state_dict(
+            state_dict,
+            strict=True,
+        )
+
+        # The V12 PPO checkpoint contains its exploration-noise
+        # parameter. Distillation should retain the configured low
+        # rollout noise while preserving the deterministic V12 mean.
+        with torch.no_grad():
+            if self.student.noise_std_type == "scalar":
+                self.student.std.fill_(
+                    self.distillation_action_noise_std
+                )
+            else:
+                self.student.log_std.fill_(
+                    torch.log(
+                        torch.tensor(
+                            self.distillation_action_noise_std,
+                            device=self.student.log_std.device,
+                            dtype=self.student.log_std.dtype,
+                        )
+                    )
+                )
+
+        self.loaded_student = True
+
+        print(
+            "[INFO]: Loaded V12 checkpoint into "
+            "the V15 recurrent-graph student."
+        )
+
+    @property
+    def action_std(self):
+        """Expose student noise without requiring an action distribution."""
+        if self.student.noise_std_type == "scalar":
+            return self.student.std
+
+        return torch.exp(
+            self.student.log_std
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+    ):
+        """Load either a Central teacher or a saved distillation run."""
+
+        # Central PPO checkpoint.
+        if (
+            any(
+                key.startswith("actor.")
+                for key in state_dict
+            )
+            and any(
+                key.startswith("memory_a.")
+                for key in state_dict
+            )
+        ):
+            self.teacher.load_state_dict(
+                state_dict,
+                strict=strict,
+            )
+
+            for parameter in self.teacher.parameters():
+                parameter.requires_grad_(False)
+
+            self.teacher.eval()
+            self.loaded_teacher = True
+
+            print(
+                "[INFO]: Loaded and froze the "
+                "Central recurrent teacher."
+            )
+
+            # False tells OnPolicyRunner this is an RL-to-
+            # distillation initialization rather than resumption.
+            return False
+
+        # V15 distillation checkpoint.
+        if (
+            any(
+                key.startswith("student.")
+                for key in state_dict
+            )
+            and any(
+                key.startswith("teacher.")
+                for key in state_dict
+            )
+        ):
+            nn.Module.load_state_dict(
+                self,
+                state_dict,
+                strict=strict,
+            )
+
+            self.loaded_teacher = True
+            self.loaded_student = True
+
+            for parameter in self.teacher.parameters():
+                parameter.requires_grad_(False)
+
+            self.teacher.eval()
+
+            return True
+
+        raise ValueError(
+            "Checkpoint is neither a Central PPO checkpoint "
+            "nor a V15 distillation checkpoint."
+        )

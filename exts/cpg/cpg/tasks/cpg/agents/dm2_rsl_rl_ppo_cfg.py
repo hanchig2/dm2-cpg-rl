@@ -6,10 +6,15 @@
 import rsl_rl.runners.on_policy_runner as on_policy_runner_module
 
 from isaaclab.utils import configclass
-from isaaclab_rl.rsl_rl import RslRlPpoActorCriticRecurrentCfg
+from isaaclab_rl.rsl_rl import (
+    RslRlDistillationAlgorithmCfg,
+    RslRlDistillationStudentTeacherRecurrentCfg,
+    RslRlPpoActorCriticRecurrentCfg,
+)
 
 from modules.dm2_actor_critic import (
     DM2ActorCriticRecurrent,
+    DM2GraphStudentTeacherRecurrent,
     DM2MessageActorCriticRecurrent,
     DM2RecurrentGraphActorCriticRecurrent,
 )
@@ -30,6 +35,9 @@ on_policy_runner_module.DM2MessageActorCriticRecurrent = (
 )
 on_policy_runner_module.DM2RecurrentGraphActorCriticRecurrent = (
     DM2RecurrentGraphActorCriticRecurrent
+)
+on_policy_runner_module.DM2GraphStudentTeacherRecurrent = (
+    DM2GraphStudentTeacherRecurrent
 )
 
 
@@ -114,4 +122,36 @@ class DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg(
         actor_hidden_dims=[256, 128],
         critic_hidden_dims=[256, 128],
         activation="elu",
+    )
+
+
+@configclass
+class DM2GraphDistillationCPGUnitreeA1MixedRunnerCfg(
+    DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg
+):
+    """Central-teacher distillation for the V15 graph student."""
+
+    max_iterations = 100
+    save_interval = 10
+
+    experiment_name = (
+        "dm2_v15_graph_distillation_static_mixed_cpg_unitree_a1"
+    )
+
+    policy = RslRlDistillationStudentTeacherRecurrentCfg(
+        class_name="DM2GraphStudentTeacherRecurrent",
+        init_noise_std=0.1,
+        student_hidden_dims=[256, 128],
+        teacher_hidden_dims=[256, 128],
+        activation="elu",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        teacher_recurrent=True,
+    )
+
+    algorithm = RslRlDistillationAlgorithmCfg(
+        num_learning_epochs=1,
+        gradient_length=15,
+        learning_rate=1.0e-4,
     )

@@ -35,6 +35,15 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
+    "--student_warm_start_checkpoint",
+    type=str,
+    default=None,
+    help=(
+        "Load the student policy from an explicit checkpoint. "
+        "Used by custom teacher-student distillation policies."
+    ),
+)
+parser.add_argument(
     "--reset_optimizer",
     action="store_true",
     default=False,
@@ -257,6 +266,51 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             resume_path,
             load_optimizer=not args_cli.reset_optimizer,
         )
+
+        if args_cli.student_warm_start_checkpoint is not None:
+            student_checkpoint_path = os.path.abspath(
+                os.path.expanduser(
+                    args_cli.student_warm_start_checkpoint
+                )
+            )
+
+            if not os.path.isfile(
+                student_checkpoint_path
+            ):
+                raise FileNotFoundError(
+                    "Student warm-start checkpoint "
+                    "does not exist: "
+                    f"{student_checkpoint_path}"
+                )
+
+            load_student = getattr(
+                runner.alg.policy,
+                "load_student_state_dict",
+                None,
+            )
+
+            if load_student is None:
+                raise TypeError(
+                    "The selected policy does not support "
+                    "--student_warm_start_checkpoint."
+                )
+
+            student_checkpoint = torch.load(
+                student_checkpoint_path,
+                map_location=agent_cfg.device,
+                weights_only=False,
+            )
+
+            load_student(
+                student_checkpoint[
+                    "model_state_dict"
+                ]
+            )
+
+            print(
+                "[INFO]: Loaded student checkpoint from: "
+                f"{student_checkpoint_path}"
+            )
 
         if args_cli.reset_optimizer:
             optimizer = runner.alg.optimizer
