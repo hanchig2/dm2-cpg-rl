@@ -307,6 +307,52 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 ]
             )
 
+            # The student policy was trained with empirical
+            # normalization. Its weights are only behaviorally
+            # meaningful together with the matching V12 actor
+            # normalizer.
+            if runner.empirical_normalization:
+                if (
+                    "obs_norm_state_dict"
+                    not in student_checkpoint
+                ):
+                    raise KeyError(
+                        "Student checkpoint lacks "
+                        "obs_norm_state_dict."
+                    )
+
+                runner.obs_normalizer.load_state_dict(
+                    student_checkpoint[
+                        "obs_norm_state_dict"
+                    ]
+                )
+
+                # The Central checkpoint loaded above already
+                # supplied its actor normalizer to the teacher's
+                # privileged-observation normalizer. Freeze both
+                # normalizers so the frozen teacher and frozen V12
+                # backbone continue receiving exactly the inputs
+                # for which their weights were trained.
+                runner.obs_normalizer.until = 0
+                runner.privileged_obs_normalizer.until = 0
+
+                print(
+                    "[INFO]: Loaded and froze the V12 student "
+                    "observation normalizer."
+                )
+                print(
+                    "[INFO]: Froze the Central teacher "
+                    "observation normalizer."
+                )
+                print(
+                    "[INFO]: Student normalizer count: "
+                    f"{int(runner.obs_normalizer.count.item())}"
+                )
+                print(
+                    "[INFO]: Teacher normalizer count: "
+                    f"{int(runner.privileged_obs_normalizer.count.item())}"
+                )
+
             print(
                 "[INFO]: Loaded student checkpoint from: "
                 f"{student_checkpoint_path}"
