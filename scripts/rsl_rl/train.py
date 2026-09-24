@@ -267,6 +267,36 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             load_optimizer=not args_cli.reset_optimizer,
         )
 
+        if getattr(
+            runner.alg.policy,
+            "freeze_observation_normalizers",
+            False,
+        ):
+            if not runner.empirical_normalization:
+                raise RuntimeError(
+                    "V18 requires empirical normalization."
+                )
+
+            runner.obs_normalizer.until = 0
+            runner.privileged_obs_normalizer.until = 0
+
+            print(
+                "[INFO]: Froze V18 V12 actor "
+                "observation normalizer."
+            )
+            print(
+                "[INFO]: Froze V18 centralized "
+                "critic observation normalizer."
+            )
+            print(
+                "[INFO]: V18 actor normalizer count: "
+                f"{int(runner.obs_normalizer.count.item())}"
+            )
+            print(
+                "[INFO]: V18 critic normalizer count: "
+                f"{int(runner.privileged_obs_normalizer.count.item())}"
+            )
+
         if args_cli.student_warm_start_checkpoint is not None:
             student_checkpoint_path = os.path.abspath(
                 os.path.expanduser(

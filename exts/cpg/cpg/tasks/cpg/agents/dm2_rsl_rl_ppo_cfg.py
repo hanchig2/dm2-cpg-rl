@@ -243,3 +243,47 @@ class DM2AnchoredGraphDistillationCPGUnitreeA1MixedRunnerCfg(
         gradient_length=15,
         learning_rate=2.0e-5,
     )
+
+
+import copy as _v18_copy
+
+from modules.dm2_actor_critic import (
+    DM2AnchoredResidualPPOActorCriticRecurrent,
+)
+
+
+on_policy_runner_module.DM2AnchoredResidualPPOActorCriticRecurrent = (
+    DM2AnchoredResidualPPOActorCriticRecurrent
+)
+
+
+@configclass
+class DM2AnchoredResidualPPOCPGUnitreeA1MixedRunnerCfg(
+    DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg
+):
+    """V18 frozen-V12 anchored graph residual optimized by PPO."""
+
+    max_iterations = 100
+    save_interval = 10
+
+    experiment_name = (
+        "dm2_v18_anchored_residual_ppo_"
+        "static_mixed_cpg_unitree_a1"
+    )
+
+    policy = _v18_copy.deepcopy(
+        DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg().policy
+    )
+
+    policy.class_name = (
+        "DM2AnchoredResidualPPOActorCriticRecurrent"
+    )
+    policy.init_noise_std = 0.1
+
+    algorithm = _v18_copy.deepcopy(
+        DM2RecurrentGraphCPGUnitreeA1MixedPPORunnerCfg().algorithm
+    )
+
+    algorithm.learning_rate = 5.0e-5
+    algorithm.entropy_coef = 0.0
+    algorithm.schedule = "fixed"

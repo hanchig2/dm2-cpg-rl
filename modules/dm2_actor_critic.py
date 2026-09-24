@@ -1336,3 +1336,571 @@ class DM2AnchoredGraphStudentTeacherRecurrent(
         self._freeze_student_backbone()
 
         return result
+
+
+class DM2AnchoredResidualPPOActorCriticRecurrent(
+    DM2RecurrentGraphActorCriticRecurrent
+):
+    """Frozen V12 actor plus bounded graph residual trained by PPO.
+
+    The deployed deterministic mean is
+
+        anchor + residual_limit * tanh(
+            (raw_graph_actor - anchor)
+            / residual_limit
+        )
+
+    Only the recurrent graph tensors and centralized critic are
+    trainable. The V12 actor, exact V12 anchor, and action noise
+    remain frozen.
+    """
+
+    GRAPH_UPDATE_SCALE = 0.03
+    MAX_ACTION_RESIDUAL = 0.08
+
+    # Used by scripts/rsl_rl/train.py after runner.load().
+    freeze_observation_normalizers = True
+
+    def __init__(
+        self,
+        num_actor_obs: int,
+        num_critic_obs: int,
+        num_actions: int,
+        actor_hidden_dims: list[int] = [256, 128],
+        critic_hidden_dims: list[int] = [256, 128],
+        activation: str = "elu",
+        rnn_type: str = "lstm",
+        rnn_hidden_dim: int = 256,
+        rnn_num_layers: int = 1,
+        init_noise_std: float = 0.1,
+        **kwargs,
+    ):
+        if rnn_type.lower() != "lstm":
+            raise ValueError(
+                "V18 currently requires LSTM so its "
+                "four-part actor hidden-state bundle "
+                "has fixed semantics."
+            )
+
+        super().__init__(
+            num_actor_obs=num_actor_obs,
+            num_critic_obs=num_critic_obs,
+            num_actions=num_actions,
+            actor_hidden_dims=actor_hidden_dims,
+            critic_hidden_dims=critic_hidden_dims,
+            activation=activation,
+            rnn_type=rnn_type,
+            rnn_hidden_dim=rnn_hidden_dim,
+            rnn_num_layers=rnn_num_layers,
+            init_noise_std=init_noise_std,
+            graph_update_scale=(
+                self.GRAPH_UPDATE_SCALE
+            ),
+            **kwargs,
+        )
+
+        self.anchor = DM2MessageActorCriticRecurrent(
+            num_actor_obs=num_actor_obs,
+            num_critic_obs=num_critic_obs,
+            num_actions=num_actions,
+            actor_hidden_dims=actor_hidden_dims,
+            critic_hidden_dims=critic_hidden_dims,
+            activation=activation,
+            rnn_type=rnn_type,
+            rnn_hidden_dim=rnn_hidden_dim,
+            rnn_num_layers=rnn_num_layers,
+            init_noise_std=init_noise_std,
+        )
+
+        self._last_anchor_mean = None
+
+        self._freeze_components()
+
+        print(
+            "V18 graph update scale: "
+            f"{self.GRAPH_UPDATE_SCALE}"
+        )
+        print(
+            "V18 maximum action residual: "
+            f"{self.MAX_ACTION_RESIDUAL}"
+        )
+        print(
+            "V18 action noise is fixed at: "
+            f"{init_noise_std}"
+        )
+        print(
+            "V18 actor hidden-state format: "
+            "packed_h(student|anchor), "
+            "packed_c(student|anchor)"
+        )
+
+    def _freeze_components(self):
+        """Freeze anchor and V12 actor; train graph and critic."""
+
+        for parameter in self.parameters():
+            parameter.requires_grad_(False)
+
+        for parameter in (
+            self.memory_a.graph_gate.parameters()
+        ):
+            parameter.requires_grad_(True)
+
+        for parameter in (
+            self.memory_a.graph_candidate.parameters()
+        ):
+            parameter.requires_grad_(True)
+
+        for parameter in self.memory_c.parameters():
+            parameter.requires_grad_(True)
+
+        for parameter in self.critic.parameters():
+            parameter.requires_grad_(True)
+
+        for parameter in self.anchor.parameters():
+            parameter.requires_grad_(False)
+
+        if hasattr(self, "std"):
+            self.std.requires_grad_(False)
+
+        if hasattr(self, "log_std"):
+            self.log_std.requires_grad_(False)
+
+        self.anchor.eval()
+
+        trainable_names = [
+            name
+            for name, parameter
+            in self.named_parameters()
+            if parameter.requires_grad
+        ]
+
+        print("V18 trainable parameters:")
+
+        for name in trainable_names:
+            print(f"  {name}")
+
+    def train(
+        self,
+        mode: bool = True,
+    ):
+        result = super().train(mode)
+
+        # The frozen anchor must always remain deterministic.
+        self.anchor.eval()
+
+        return result
+
+    def _split_actor_hidden_states(
+        self,
+        hidden_states,
+    ):
+        """Unpack student/anchor states from PPO storage layout.
+
+        During online rollout, the four legs occupy the recurrent
+        batch dimension and student/anchor features are concatenated:
+
+            [layers, 4 * environments, 2 * hidden]
+
+        RSL-RL storage folds the four legs into the feature dimension:
+
+            [layers, trajectories, 4 * 2 * hidden]
+
+        The stored feature order is interleaved by leg:
+
+            S0, A0, S1, A1, S2, A2, S3, A3
+
+        This method supports both representations and reconstructs
+        the ordinary DM2 per-policy hidden representation.
+        """
+
+        if hidden_states is None:
+            return None, None
+
+        if not isinstance(
+            hidden_states,
+            (tuple, list),
+        ):
+            raise TypeError(
+                "V18 actor hidden states must be "
+                "a tuple/list containing packed h and c."
+            )
+
+        if len(hidden_states) != 2:
+            raise ValueError(
+                "Expected packed actor hidden states "
+                "(combined_h, combined_c), got "
+                f"{len(hidden_states)} entries."
+            )
+
+        def unpack_tensor(
+            packed,
+            state_name,
+        ):
+            width = packed.shape[-1]
+
+            online_width = (
+                2 * self.rnn_hidden_dim
+            )
+
+            storage_width = (
+                self.num_legs
+                * 2
+                * self.rnn_hidden_dim
+            )
+
+            if width == online_width:
+                # Online representation:
+                # [..., student_hidden | anchor_hidden]
+                student, anchor = torch.split(
+                    packed,
+                    self.rnn_hidden_dim,
+                    dim=-1,
+                )
+
+                return (
+                    student.contiguous(),
+                    anchor.contiguous(),
+                )
+
+            if width == storage_width:
+                # Stored representation:
+                # [..., leg, student_or_anchor, hidden]
+                prefix = packed.shape[:-1]
+
+                interleaved = packed.reshape(
+                    *prefix,
+                    self.num_legs,
+                    2,
+                    self.rnn_hidden_dim,
+                )
+
+                student = (
+                    interleaved[
+                        ...,
+                        :,
+                        0,
+                        :,
+                    ]
+                    .reshape(
+                        *prefix,
+                        self.num_legs
+                        * self.rnn_hidden_dim,
+                    )
+                    .contiguous()
+                )
+
+                anchor = (
+                    interleaved[
+                        ...,
+                        :,
+                        1,
+                        :,
+                    ]
+                    .reshape(
+                        *prefix,
+                        self.num_legs
+                        * self.rnn_hidden_dim,
+                    )
+                    .contiguous()
+                )
+
+                return student, anchor
+
+            raise ValueError(
+                f"Unexpected packed {state_name} "
+                f"width {width}; expected "
+                f"{online_width} for online state "
+                f"or {storage_width} for PPO storage."
+            )
+
+        (
+            student_h,
+            anchor_h,
+        ) = unpack_tensor(
+            hidden_states[0],
+            "h",
+        )
+
+        (
+            student_c,
+            anchor_c,
+        ) = unpack_tensor(
+            hidden_states[1],
+            "c",
+        )
+
+        student_hidden = (
+            student_h,
+            student_c,
+        )
+
+        anchor_hidden = (
+            anchor_h,
+            anchor_c,
+        )
+
+        return student_hidden, anchor_hidden
+
+    def _bounded_mean(
+        self,
+        raw_mean: torch.Tensor,
+        anchor_mean: torch.Tensor,
+    ) -> torch.Tensor:
+        scale = self.MAX_ACTION_RESIDUAL
+
+        return (
+            anchor_mean
+            + scale
+            * torch.tanh(
+                (raw_mean - anchor_mean)
+                / scale
+            )
+        )
+
+    def act(
+        self,
+        observations: torch.Tensor,
+        masks: torch.Tensor | None = None,
+        hidden_states=None,
+    ) -> torch.Tensor:
+        """Sample from the bounded anchored PPO distribution."""
+
+        (
+            student_hidden,
+            anchor_hidden,
+        ) = self._split_actor_hidden_states(
+            hidden_states
+        )
+
+        # Advance the trainable graph actor and form its raw
+        # action distribution.
+        super().act(
+            observations,
+            masks=masks,
+            hidden_states=student_hidden,
+        )
+
+        raw_mean = self.action_mean
+        raw_std = self.action_std
+
+        # Advance the exact frozen V12 anchor using its own
+        # recurrent state.
+        with torch.no_grad():
+            self.anchor.act(
+                observations,
+                masks=masks,
+                hidden_states=anchor_hidden,
+            )
+
+            anchor_mean = (
+                self.anchor.action_mean.detach()
+            )
+
+        bounded_mean = self._bounded_mean(
+            raw_mean,
+            anchor_mean,
+        )
+
+        self._last_anchor_mean = anchor_mean
+
+        self.distribution = (
+            torch.distributions.Normal(
+                bounded_mean,
+                raw_std,
+            )
+        )
+
+        return self.distribution.sample()
+
+    def act_inference(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return the deterministic bounded anchored mean."""
+
+        raw_mean = super().act_inference(
+            observations
+        )
+
+        with torch.no_grad():
+            anchor_mean = (
+                self.anchor.act_inference(
+                    observations
+                )
+            ).detach()
+
+        self._last_anchor_mean = anchor_mean
+
+        return self._bounded_mean(
+            raw_mean,
+            anchor_mean,
+        )
+
+    def reset(
+        self,
+        dones=None,
+    ):
+        self._last_anchor_mean = None
+
+        super().reset(dones)
+
+        self.anchor.memory_a.reset(dones)
+
+    def get_hidden_states(self):
+        """Return PPO-compatible packed actor and critic LSTM states."""
+
+        student_hidden = (
+            self.memory_a.hidden_states
+        )
+
+        anchor_hidden = (
+            self.anchor.memory_a.hidden_states
+        )
+
+        if (
+            student_hidden is None
+            and anchor_hidden is None
+        ):
+            actor_hidden = None
+        else:
+            if (
+                student_hidden is None
+                or anchor_hidden is None
+            ):
+                raise RuntimeError(
+                    "Student and anchor recurrent "
+                    "states became unsynchronized."
+                )
+
+            if (
+                len(student_hidden) != 2
+                or len(anchor_hidden) != 2
+            ):
+                raise RuntimeError(
+                    "V18 expected LSTM (h,c) states."
+                )
+
+            combined_h = torch.cat(
+                (
+                    student_hidden[0],
+                    anchor_hidden[0],
+                ),
+                dim=-1,
+            )
+
+            combined_c = torch.cat(
+                (
+                    student_hidden[1],
+                    anchor_hidden[1],
+                ),
+                dim=-1,
+            )
+
+            actor_hidden = (
+                combined_h,
+                combined_c,
+            )
+
+        return (
+            actor_hidden,
+            self.memory_c.hidden_states,
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+        assign: bool = False,
+    ):
+        """Load either V12 warm start or a complete V18 checkpoint."""
+
+        is_v18_checkpoint = any(
+            key.startswith("anchor.")
+            for key in state_dict
+        )
+
+        if is_v18_checkpoint:
+            torch.nn.Module.load_state_dict(
+                self,
+                state_dict,
+                strict=strict,
+                assign=assign,
+            )
+
+            print(
+                "[INFO]: Loaded complete V18 "
+                "anchored-residual PPO checkpoint."
+            )
+        else:
+            current = self.state_dict()
+
+            # Start with a complete valid V18 state. This preserves
+            # zero graph tensors and fixed 0.1 action noise.
+            adapted = {
+                key: value.detach().clone()
+                for key, value in current.items()
+            }
+
+            ignored_noise = (
+                "std",
+                "log_std",
+            )
+
+            loaded_base = 0
+            loaded_anchor = 0
+
+            for key, value in state_dict.items():
+                if (
+                    key in current
+                    and key not in ignored_noise
+                    and tuple(current[key].shape)
+                    == tuple(value.shape)
+                ):
+                    adapted[key] = (
+                        value.detach().clone()
+                    )
+                    loaded_base += 1
+
+                anchor_key = f"anchor.{key}"
+
+                if (
+                    anchor_key in current
+                    and tuple(
+                        current[anchor_key].shape
+                    )
+                    == tuple(value.shape)
+                ):
+                    adapted[anchor_key] = (
+                        value.detach().clone()
+                    )
+                    loaded_anchor += 1
+
+            torch.nn.Module.load_state_dict(
+                self,
+                adapted,
+                strict=True,
+                assign=assign,
+            )
+
+            print(
+                "[INFO]: Loaded V12 into V18 "
+                f"base tensors: {loaded_base}"
+            )
+            print(
+                "[INFO]: Loaded V12 into frozen "
+                f"anchor tensors: {loaded_anchor}"
+            )
+            print(
+                "[INFO]: Preserved zero graph "
+                "parameters and fixed 0.1 noise."
+            )
+
+        self.memory_a.graph_update_scale = (
+            self.GRAPH_UPDATE_SCALE
+        )
+
+        self._freeze_components()
+
+        # OnPolicyRunner uses this Boolean to determine that
+        # both actor and critic normalizers should be loaded.
+        return True
