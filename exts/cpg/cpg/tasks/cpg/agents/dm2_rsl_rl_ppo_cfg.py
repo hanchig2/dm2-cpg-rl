@@ -199,3 +199,47 @@ class DM2GraphOnlyDistillationCPGUnitreeA1MixedRunnerCfg(
         gradient_length=15,
         learning_rate=2.0e-5,
     )
+
+
+from modules.dm2_actor_critic import (
+    DM2AnchoredGraphStudentTeacherRecurrent,
+)
+
+on_policy_runner_module.DM2AnchoredGraphStudentTeacherRecurrent = (
+    DM2AnchoredGraphStudentTeacherRecurrent
+)
+
+
+@configclass
+class DM2AnchoredGraphDistillationCPGUnitreeA1MixedRunnerCfg(
+    DM2GraphOnlyDistillationCPGUnitreeA1MixedRunnerCfg
+):
+    """V17 bounded graph correction anchored to frozen V12."""
+
+    max_iterations = 100
+    save_interval = 10
+
+    experiment_name = (
+        "dm2_v17_anchored_graph_distillation_"
+        "static_mixed_cpg_unitree_a1"
+    )
+
+    policy = RslRlDistillationStudentTeacherRecurrentCfg(
+        class_name=(
+            "DM2AnchoredGraphStudentTeacherRecurrent"
+        ),
+        init_noise_std=0.1,
+        student_hidden_dims=[256, 128],
+        teacher_hidden_dims=[256, 128],
+        activation="elu",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=1,
+        teacher_recurrent=True,
+    )
+
+    algorithm = RslRlDistillationAlgorithmCfg(
+        num_learning_epochs=1,
+        gradient_length=15,
+        learning_rate=2.0e-5,
+    )

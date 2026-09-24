@@ -932,3 +932,407 @@ class DM2GraphOnlyStudentTeacherRecurrent(
         self._freeze_student_backbone()
 
         return result
+
+
+class DM2AnchoredGraphStudentTeacherRecurrent(
+    DM2GraphOnlyStudentTeacherRecurrent
+):
+    """V17: bounded graph correction anchored to frozen V12.
+
+    Three recurrent policies run in parallel:
+
+    1. graph student: only graph gate/candidate parameters train;
+    2. V12 anchor: exact frozen V12 policy;
+    3. Central teacher: exact frozen Central recurrent policy.
+
+    The deployed student action is bounded to +/- 0.05 relative to
+    the V12 anchor. During collection, the Central action is blended
+    conservatively toward the V12 action and stored as the native
+    RSL-RL distillation target.
+
+    The effective target is algebraically equivalent, up to an
+    overall constant loss scale, to:
+
+        MSE(student, blended_target)
+        + anchor_weight * MSE(student, V12_anchor)
+    """
+
+    TEACHER_BLEND_BETA = 0.25
+    TEACHER_DELTA_CLIP = 0.25
+    MAX_ACTION_RESIDUAL = 0.05
+    ANCHOR_LOSS_WEIGHT = 0.10
+
+    def __init__(
+        self,
+        num_student_obs: int,
+        num_teacher_obs: int,
+        num_actions: int,
+        student_hidden_dims: list[int] = [256, 128],
+        teacher_hidden_dims: list[int] = [256, 128],
+        activation: str = "elu",
+        rnn_type: str = "lstm",
+        rnn_hidden_dim: int = 256,
+        rnn_num_layers: int = 1,
+        init_noise_std: float = 0.1,
+        teacher_recurrent: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            num_student_obs=num_student_obs,
+            num_teacher_obs=num_teacher_obs,
+            num_actions=num_actions,
+            student_hidden_dims=student_hidden_dims,
+            teacher_hidden_dims=teacher_hidden_dims,
+            activation=activation,
+            rnn_type=rnn_type,
+            rnn_hidden_dim=rnn_hidden_dim,
+            rnn_num_layers=rnn_num_layers,
+            init_noise_std=init_noise_std,
+            teacher_recurrent=teacher_recurrent,
+            **kwargs,
+        )
+
+        self.anchor = DM2MessageActorCriticRecurrent(
+            num_actor_obs=num_student_obs,
+            num_critic_obs=num_teacher_obs,
+            num_actions=num_actions,
+            actor_hidden_dims=student_hidden_dims,
+            critic_hidden_dims=student_hidden_dims,
+            activation=activation,
+            rnn_type=rnn_type,
+            rnn_hidden_dim=rnn_hidden_dim,
+            rnn_num_layers=rnn_num_layers,
+            init_noise_std=init_noise_std,
+        )
+
+        for parameter in self.anchor.parameters():
+            parameter.requires_grad_(False)
+
+        self.anchor.eval()
+        self.loaded_anchor = False
+        self._last_anchor_actions = None
+
+        print(
+            "V17 teacher blend beta: "
+            f"{self.TEACHER_BLEND_BETA}"
+        )
+        print(
+            "V17 teacher delta clip: "
+            f"{self.TEACHER_DELTA_CLIP}"
+        )
+        print(
+            "V17 maximum action residual: "
+            f"{self.MAX_ACTION_RESIDUAL}"
+        )
+        print(
+            "V17 anchor-loss weight: "
+            f"{self.ANCHOR_LOSS_WEIGHT}"
+        )
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+
+        # Both reference policies must remain deterministic.
+        self.teacher.eval()
+        self.anchor.eval()
+        return self
+
+    def _anchor_actions(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        with torch.no_grad():
+            anchor_actions = (
+                self.anchor.act_inference(
+                    observations
+                )
+            )
+
+        self._last_anchor_actions = (
+            anchor_actions.detach()
+        )
+
+        return anchor_actions
+
+    def _bound_student_actions(
+        self,
+        raw_student_actions: torch.Tensor,
+        anchor_actions: torch.Tensor,
+    ) -> torch.Tensor:
+        scale = self.MAX_ACTION_RESIDUAL
+
+        residual = scale * torch.tanh(
+            (
+                raw_student_actions
+                - anchor_actions
+            )
+            / scale
+        )
+
+        return anchor_actions + residual
+
+    def _set_student_distribution(
+        self,
+        action_mean: torch.Tensor,
+    ):
+        if self.student.noise_std_type == "scalar":
+            action_std = (
+                self.student.std.expand_as(
+                    action_mean
+                )
+            )
+        else:
+            action_std = torch.exp(
+                self.student.log_std
+            ).expand_as(
+                action_mean
+            )
+
+        self.student.distribution = (
+            torch.distributions.Normal(
+                action_mean,
+                action_std,
+            )
+        )
+
+    def act(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Sample around the bounded anchored student mean."""
+
+        anchor_actions = self._anchor_actions(
+            observations
+        )
+
+        raw_student_actions = (
+            self.student.act_inference(
+                observations
+            )
+        )
+
+        bounded_actions = (
+            self._bound_student_actions(
+                raw_student_actions,
+                anchor_actions,
+            )
+        )
+
+        self._set_student_distribution(
+            bounded_actions
+        )
+
+        return self.student.distribution.sample()
+
+    def act_inference(
+        self,
+        observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return bounded deterministic graph-student actions."""
+
+        anchor_actions = self._anchor_actions(
+            observations
+        )
+
+        raw_student_actions = (
+            self.student.act_inference(
+                observations
+            )
+        )
+
+        return self._bound_student_actions(
+            raw_student_actions,
+            anchor_actions,
+        )
+
+    def evaluate(
+        self,
+        teacher_observations: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return the anchored Central/V12 blended target."""
+
+        if self._last_anchor_actions is None:
+            raise RuntimeError(
+                "V17 evaluate() requires act() to be "
+                "called first for the same transition."
+            )
+
+        central_actions = super().evaluate(
+            teacher_observations
+        )
+
+        anchor_actions = (
+            self._last_anchor_actions
+        )
+
+        teacher_delta = torch.clamp(
+            central_actions - anchor_actions,
+            min=-self.TEACHER_DELTA_CLIP,
+            max=self.TEACHER_DELTA_CLIP,
+        )
+
+        teacher_correction = torch.clamp(
+            self.TEACHER_BLEND_BETA
+            * teacher_delta,
+            min=-self.MAX_ACTION_RESIDUAL,
+            max=self.MAX_ACTION_RESIDUAL,
+        )
+
+        blended_target = (
+            anchor_actions
+            + teacher_correction
+        )
+
+        # For squared error, minimizing
+        #
+        #   ||a - blended||^2
+        #   + lambda ||a - anchor||^2
+        #
+        # has the same optimum as MSE to this effective target.
+        effective_target = (
+            blended_target
+            + self.ANCHOR_LOSS_WEIGHT
+            * anchor_actions
+        ) / (
+            1.0
+            + self.ANCHOR_LOSS_WEIGHT
+        )
+
+        return effective_target.detach()
+
+    def reset(
+        self,
+        dones=None,
+        hidden_states=None,
+    ):
+        """Reset/restore student, anchor, and teacher memories."""
+
+        self._last_anchor_actions = None
+
+        if dones is None:
+            if hidden_states is None:
+                student_hidden = None
+                anchor_hidden = None
+                teacher_hidden = None
+            else:
+                if (
+                    not isinstance(
+                        hidden_states,
+                        (tuple, list),
+                    )
+                    or len(hidden_states) != 2
+                ):
+                    raise ValueError(
+                        "Expected "
+                        "((student, anchor), teacher) "
+                        "hidden states."
+                    )
+
+                student_bundle, teacher_hidden = (
+                    hidden_states
+                )
+
+                if (
+                    not isinstance(
+                        student_bundle,
+                        (tuple, list),
+                    )
+                    or len(student_bundle) != 2
+                ):
+                    raise ValueError(
+                        "Expected the first hidden-state "
+                        "entry to be (student, anchor)."
+                    )
+
+                student_hidden, anchor_hidden = (
+                    student_bundle
+                )
+
+            self.student.memory_a.hidden_states = (
+                student_hidden
+            )
+            self.anchor.memory_a.hidden_states = (
+                anchor_hidden
+            )
+            self.teacher.memory_a.hidden_states = (
+                teacher_hidden
+            )
+            return
+
+        self.student.memory_a.reset(dones)
+        self.anchor.memory_a.reset(dones)
+        self.teacher.memory_a.reset(dones)
+
+    def detach_hidden_states(
+        self,
+        dones=None,
+    ):
+        self.student.memory_a.detach_hidden_states(
+            dones
+        )
+        self.anchor.memory_a.detach_hidden_states(
+            dones
+        )
+        self.teacher.memory_a.detach_hidden_states(
+            dones
+        )
+
+    def get_hidden_states(self):
+        return (
+            (
+                self.student.memory_a.hidden_states,
+                self.anchor.memory_a.hidden_states,
+            ),
+            self.teacher.memory_a.hidden_states,
+        )
+
+    def load_student_state_dict(
+        self,
+        state_dict,
+    ):
+        """Load the same V12 checkpoint into student and anchor."""
+
+        super().load_student_state_dict(
+            state_dict
+        )
+
+        self.anchor.load_state_dict(
+            state_dict,
+            strict=True,
+        )
+
+        for parameter in self.anchor.parameters():
+            parameter.requires_grad_(False)
+
+        self.anchor.eval()
+        self.loaded_anchor = True
+
+        print(
+            "[INFO]: Loaded and froze the exact "
+            "V12 recurrent anchor."
+        )
+
+    def load_state_dict(
+        self,
+        state_dict,
+        strict: bool = True,
+    ):
+        result = super().load_state_dict(
+            state_dict,
+            strict=strict,
+        )
+
+        for parameter in self.anchor.parameters():
+            parameter.requires_grad_(False)
+
+        self.anchor.eval()
+
+        if any(
+            key.startswith("anchor.")
+            for key in state_dict
+        ):
+            self.loaded_anchor = True
+
+        self._freeze_student_backbone()
+
+        return result
