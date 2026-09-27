@@ -287,3 +287,20 @@ class DM2AnchoredResidualPPOCPGUnitreeA1MixedRunnerCfg(
     algorithm.learning_rate = 5.0e-5
     algorithm.entropy_coef = 0.0
     algorithm.schedule = "fixed"
+
+@configclass
+class PartBDM2MessageFromScratchCPGUnitreeA1MixedPPORunnerCfg(
+    DM2MessageCPGUnitreeA1MixedPPORunnerCfg
+):
+    """Strict from-scratch DM2 Message baseline for Part B."""
+
+    num_steps_per_env = 48
+    max_iterations = 3000
+    save_interval = 100
+
+    experiment_name = (
+        "part_b_dm2_message_from_scratch_"
+        "static_mixed_cpg_unitree_a1"
+    )
+
+    resume = False

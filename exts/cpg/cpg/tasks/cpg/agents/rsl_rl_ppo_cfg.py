@@ -209,3 +209,20 @@ class CPGUnitreeA1StairsPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+@configclass
+class PartBCentralFromScratchCPGUnitreeA1MixedPPORunnerCfg(
+    CPGUnitreeA1MixedPPORunnerCfg
+):
+    """Strict from-scratch Central baseline for Part B."""
+
+    num_steps_per_env = 48
+    max_iterations = 3000
+    save_interval = 100
+
+    experiment_name = (
+        "part_b_central_from_scratch_"
+        "static_mixed_cpg_unitree_a1"
+    )
+
+    resume = False
