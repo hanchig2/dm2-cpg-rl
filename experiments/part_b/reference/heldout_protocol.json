@@ -1,0 +1,29 @@
+{
+  "development_curve_sha256": "8943bed25cdc5fb0d73857714e4d5ac9ec3a05adb13d3ea59ee33fdbee8f399e",
+  "development_scenario_seed": 101,
+  "heldout_scenario_seeds": [
+    107,
+    108
+  ],
+  "locked_checkpoint_count": 9,
+  "locked_checkpoints_tsv": "analysis_outputs/part_b_from_scratch/heldout_protocol/locked_checkpoints.tsv",
+  "num_environments_per_evaluation": 64,
+  "planned_evaluation_count": 18,
+  "primary_comparison": {
+    "central_iteration": 2100,
+    "description": "Strict matched-interaction comparison.",
+    "dm2_iteration": 2100,
+    "interactions_per_run": 6454272
+  },
+  "secondary_comparison": {
+    "central_interactions": 6454272,
+    "central_iteration": 2100,
+    "description": "Method-specific development-selected comparison.",
+    "dm2_interactions": 7068672,
+    "dm2_iteration": 2300
+  },
+  "selection_policy": "Central i2100 is the aggregate development optimum and first observed 95-percent LV crossing. DM2 i2300 maximizes mean development LV across training seeds. DM2 i2100 is additionally locked for the strict matched-budget comparison. No per-seed checkpoint selection is permitted.",
+  "selection_unit": "One common iteration per method across all three training seeds.",
+  "source_branch": "part-b-from-scratch-baselines",
+  "source_commit": "9ae10d2d8e2c5760b41439f4b9d42a190ee2eacf"
+}

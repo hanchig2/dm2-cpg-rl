@@ -1,0 +1,253 @@
+{
+  "bootstrap_replicates": 20000,
+  "caution": "Only three independent training seeds were used. Rollout-level McNemar tests do not account for all within-model dependence; hierarchical cluster-bootstrap intervals are the primary uncertainty summary.",
+  "comparisons": {
+    "development_selected": {
+      "both_fail": 0,
+      "both_pass": 167,
+      "dm2_gains": 0,
+      "dm2_losses": 217,
+      "mcnemar_exact_p_value": 9.495567745759799e-66,
+      "metric_results": {
+        "abs_yaw_bias": {
+          "bootstrap_probability_positive": 0.99385,
+          "cluster_bootstrap_ci_lower": 0.000734726450875293,
+          "cluster_bootstrap_ci_upper": 0.05766256192261131,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": 0.03461640016777919,
+          "metric": "abs_yaw_bias"
+        },
+        "lv_pass": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.8489583333333334,
+          "cluster_bootstrap_ci_upper": -0.08333333333333333,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.5651041666666666,
+          "metric": "lv_pass"
+        },
+        "path_cot": {
+          "bootstrap_probability_positive": 0.1357,
+          "cluster_bootstrap_ci_lower": -0.4729172802227703,
+          "cluster_bootstrap_ci_upper": 0.0912710812998309,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.17688229306225836,
+          "metric": "path_cot"
+        },
+        "progress": {
+          "bootstrap_probability_positive": 0.03735,
+          "cluster_bootstrap_ci_lower": -8.872466107930084,
+          "cluster_bootstrap_ci_upper": 1.5202719646179168,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -5.004481867764866,
+          "metric": "progress"
+        },
+        "progress_ratio": {
+          "bootstrap_probability_positive": 0.03955,
+          "cluster_bootstrap_ci_lower": -0.49532350621873916,
+          "cluster_bootstrap_ci_upper": 0.08487982886908706,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.2806762872521967,
+          "metric": "progress_ratio"
+        },
+        "straightness": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.46605660786069764,
+          "cluster_bootstrap_ci_upper": -0.05290702058019039,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.30818894062646013,
+          "metric": "straightness"
+        },
+        "survival_time": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -1.2119583333333332,
+          "cluster_bootstrap_ci_upper": 0.0,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.39171875000000006,
+          "metric": "survival_time"
+        },
+        "translation_rmse": {
+          "bootstrap_probability_positive": 1.0,
+          "cluster_bootstrap_ci_lower": 0.07008638336624054,
+          "cluster_bootstrap_ci_upper": 0.17893071350383452,
+          "comparison": "development_selected",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": 0.1175761715409263,
+          "metric": "translation_rmse"
+        }
+      }
+    },
+    "matched_budget": {
+      "both_fail": 0,
+      "both_pass": 151,
+      "dm2_gains": 0,
+      "dm2_losses": 233,
+      "mcnemar_exact_p_value": 1.448908652612274e-70,
+      "metric_results": {
+        "abs_yaw_bias": {
+          "bootstrap_probability_positive": 1.0,
+          "cluster_bootstrap_ci_lower": 0.027513034607708865,
+          "cluster_bootstrap_ci_upper": 0.040040473836212315,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": 0.03226680038094479,
+          "metric": "abs_yaw_bias"
+        },
+        "lv_pass": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.7057291666666666,
+          "cluster_bootstrap_ci_upper": -0.5078125,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.6067708333333334,
+          "metric": "lv_pass"
+        },
+        "path_cot": {
+          "bootstrap_probability_positive": 0.00015,
+          "cluster_bootstrap_ci_lower": -0.45255501680832066,
+          "cluster_bootstrap_ci_upper": -0.06457616501620785,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.2510780031614877,
+          "metric": "path_cot"
+        },
+        "progress": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -6.365272004542786,
+          "cluster_bootstrap_ci_upper": -3.594938626724968,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -4.968547437505985,
+          "metric": "progress"
+        },
+        "progress_ratio": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.35350744714326326,
+          "cluster_bootstrap_ci_upper": -0.1992369620281901,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.2760659080203282,
+          "metric": "progress_ratio"
+        },
+        "straightness": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.37620210286111694,
+          "cluster_bootstrap_ci_upper": -0.24755856757564051,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.31092738554638827,
+          "metric": "straightness"
+        },
+        "survival_time": {
+          "bootstrap_probability_positive": 0.0,
+          "cluster_bootstrap_ci_lower": -0.7176041666666667,
+          "cluster_bootstrap_ci_upper": 0.0,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": -0.17351562499999998,
+          "metric": "survival_time"
+        },
+        "translation_rmse": {
+          "bootstrap_probability_positive": 1.0,
+          "cluster_bootstrap_ci_lower": 0.03569514754676382,
+          "cluster_bootstrap_ci_upper": 0.16034384853203276,
+          "comparison": "matched_budget",
+          "difference_definition": "DM2 minus Central",
+          "mean_difference": 0.10030244489800627,
+          "metric": "translation_rmse"
+        }
+      }
+    }
+  },
+  "heldout_scenario_seeds": [
+    107,
+    108
+  ],
+  "maximum_survival_discrepancy_seconds": 0.0,
+  "metric_definition": "Corrected 2D-vector translation RMSE, initial-heading progress, path straightness, corrected survival units, scalar mass, and path-based CoT.",
+  "num_clusters_per_role": 6,
+  "num_environments_per_cluster": 64,
+  "num_rollouts_per_role": 384,
+  "role_summaries": {
+    "central_selected_and_matched": {
+      "abs_yaw_bias": 0.010237055535645597,
+      "balance_pass_rate": 1.0,
+      "interactions": 6454272,
+      "iteration": 2100,
+      "lv_cluster_std": 0.0,
+      "lv_rate": 1.0,
+      "method": "central",
+      "num_rollouts": 384,
+      "path_cot": 1.5989502284831218,
+      "progress": 17.55421989109165,
+      "progress_pass_rate": 1.0,
+      "progress_ratio": 0.9752343996416473,
+      "rmst": 30.0,
+      "role": "central_selected_and_matched",
+      "straightness": 0.9708959814411647,
+      "straightness_pass_rate": 1.0,
+      "survival_cluster_std": 0.0,
+      "survival_rate": 1.0,
+      "translation_pass_rate": 1.0,
+      "translation_rmse": 0.09907614902486366,
+      "yaw_pass_rate": 1.0
+    },
+    "dm2_development_selected": {
+      "abs_yaw_bias": 0.044853455703424784,
+      "balance_pass_rate": 0.4348958333333333,
+      "interactions": 7068672,
+      "iteration": 2300,
+      "lv_cluster_std": 0.37971214769107225,
+      "lv_rate": 0.4348958333333333,
+      "method": "dm2",
+      "num_rollouts": 384,
+      "path_cot": 1.4220679354208634,
+      "progress": 12.549738023326782,
+      "progress_pass_rate": 0.5703125,
+      "progress_ratio": 0.6945581123894505,
+      "rmst": 29.60828125,
+      "role": "dm2_development_selected",
+      "straightness": 0.6627070408147046,
+      "straightness_pass_rate": 0.4401041666666667,
+      "survival_cluster_std": 0.024206145913796356,
+      "survival_rate": 0.984375,
+      "translation_pass_rate": 0.9609375,
+      "translation_rmse": 0.21665232056578998,
+      "yaw_pass_rate": 0.6354166666666666
+    },
+    "dm2_matched_budget": {
+      "abs_yaw_bias": 0.042503855916590394,
+      "balance_pass_rate": 0.3932291666666667,
+      "interactions": 6454272,
+      "iteration": 2100,
+      "lv_cluster_std": 0.09500034265289081,
+      "lv_rate": 0.3932291666666667,
+      "method": "dm2",
+      "num_rollouts": 384,
+      "path_cot": 1.3478722253216342,
+      "progress": 12.585672453585664,
+      "progress_pass_rate": 0.6067708333333334,
+      "progress_ratio": 0.699168491621319,
+      "rmst": 29.826484374999996,
+      "role": "dm2_matched_budget",
+      "straightness": 0.6599685958947763,
+      "straightness_pass_rate": 0.3958333333333333,
+      "survival_cluster_std": 0.019136638615493577,
+      "survival_rate": 0.9921875,
+      "translation_pass_rate": 0.9713541666666666,
+      "translation_rmse": 0.19937859392286994,
+      "yaw_pass_rate": 0.7005208333333334
+    }
+  },
+  "training_seeds": [
+    47,
+    48,
+    49
+  ]
+}

@@ -1,0 +1,166 @@
+{
+  "best_per_training_seed": [
+    {
+      "interactions": 6761472,
+      "iteration": 2200,
+      "lv_rate": 1.0,
+      "method": "central",
+      "progress_pass_rate": 1.0,
+      "straightness_pass_rate": 1.0,
+      "survival_rate": 1.0,
+      "train_seed": 47
+    },
+    {
+      "interactions": 8911872,
+      "iteration": 2900,
+      "lv_rate": 1.0,
+      "method": "central",
+      "progress_pass_rate": 1.0,
+      "straightness_pass_rate": 1.0,
+      "survival_rate": 1.0,
+      "train_seed": 48
+    },
+    {
+      "interactions": 5225472,
+      "iteration": 1700,
+      "lv_rate": 1.0,
+      "method": "central",
+      "progress_pass_rate": 1.0,
+      "straightness_pass_rate": 1.0,
+      "survival_rate": 1.0,
+      "train_seed": 49
+    },
+    {
+      "interactions": 6454272,
+      "iteration": 2100,
+      "lv_rate": 0.53125,
+      "method": "dm2",
+      "progress_pass_rate": 0.71875,
+      "straightness_pass_rate": 0.53125,
+      "survival_rate": 0.953125,
+      "train_seed": 47
+    },
+    {
+      "interactions": 7068672,
+      "iteration": 2300,
+      "lv_rate": 0.953125,
+      "method": "dm2",
+      "progress_pass_rate": 1.0,
+      "straightness_pass_rate": 0.96875,
+      "survival_rate": 1.0,
+      "train_seed": 48
+    },
+    {
+      "interactions": 4611072,
+      "iteration": 1500,
+      "lv_rate": 0.546875,
+      "method": "dm2",
+      "progress_pass_rate": 0.765625,
+      "straightness_pass_rate": 0.578125,
+      "survival_rate": 1.0,
+      "train_seed": 49
+    }
+  ],
+  "review_records": [
+    {
+      "interactions": 2153472,
+      "iteration": 700,
+      "lv_max": 1.0,
+      "lv_mean": 0.9375,
+      "lv_min": 0.890625,
+      "lv_std": 0.05633673867912483,
+      "method": "central",
+      "progress_pass_mean": 1.0,
+      "straightness_pass_mean": 0.9635416666666666
+    },
+    {
+      "interactions": 6454272,
+      "iteration": 2100,
+      "lv_max": 1.0,
+      "lv_mean": 1.0,
+      "lv_min": 1.0,
+      "lv_std": 0.0,
+      "method": "central",
+      "progress_pass_mean": 1.0,
+      "straightness_pass_mean": 1.0
+    },
+    {
+      "interactions": 7068672,
+      "iteration": 2300,
+      "lv_max": 1.0,
+      "lv_mean": 0.71875,
+      "lv_min": 0.15625,
+      "lv_std": 0.48713928962874675,
+      "method": "central",
+      "progress_pass_mean": 0.96875,
+      "straightness_pass_mean": 0.71875
+    },
+    {
+      "interactions": 9216000,
+      "iteration": 2999,
+      "lv_max": 1.0,
+      "lv_mean": 0.8125,
+      "lv_min": 0.5625,
+      "lv_std": 0.22534695471649932,
+      "method": "central",
+      "progress_pass_mean": 0.9791666666666666,
+      "straightness_pass_mean": 0.8125
+    },
+    {
+      "interactions": 2153472,
+      "iteration": 700,
+      "lv_max": 0.625,
+      "lv_mean": 0.20833333333333334,
+      "lv_min": 0.0,
+      "lv_std": 0.3608439182435161,
+      "method": "dm2",
+      "progress_pass_mean": 0.3020833333333333,
+      "straightness_pass_mean": 0.25
+    },
+    {
+      "interactions": 6454272,
+      "iteration": 2100,
+      "lv_max": 0.53125,
+      "lv_mean": 0.3958333333333333,
+      "lv_min": 0.328125,
+      "lv_std": 0.11727427342914273,
+      "method": "dm2",
+      "progress_pass_mean": 0.6510416666666666,
+      "straightness_pass_mean": 0.3958333333333333
+    },
+    {
+      "interactions": 7068672,
+      "iteration": 2300,
+      "lv_max": 0.953125,
+      "lv_mean": 0.421875,
+      "lv_min": 0.046875,
+      "lv_std": 0.47289831095067364,
+      "method": "dm2",
+      "progress_pass_mean": 0.5625,
+      "straightness_pass_mean": 0.4270833333333333
+    },
+    {
+      "interactions": 9216000,
+      "iteration": 2999,
+      "lv_max": 0.0,
+      "lv_mean": 0.0,
+      "lv_min": 0.0,
+      "lv_std": 0.0,
+      "method": "dm2",
+      "progress_pass_mean": 0.0,
+      "straightness_pass_mean": 0.0
+    }
+  ],
+  "threshold_stability": {
+    "central": {
+      "consecutive_crossings": [],
+      "crossings": [
+        2100
+      ]
+    },
+    "dm2": {
+      "consecutive_crossings": [],
+      "crossings": []
+    }
+  }
+}

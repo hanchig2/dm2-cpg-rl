@@ -1,0 +1,72 @@
+{
+  "maximum_survival_discrepancy_seconds": 0.0,
+  "methods": {
+    "central": {
+      "development_best_checkpoint": {
+        "interactions": 6454272,
+        "iteration": 2100,
+        "lv_rate_mean": 1.0,
+        "lv_rate_std": 0.0
+      },
+      "final_checkpoint": {
+        "interactions": 9216000,
+        "iteration": 2999,
+        "lv_rate_mean": 0.8125,
+        "lv_rate_std": 0.22534695471649932
+      },
+      "first_95_percent_lv": {
+        "interactions": 6454272,
+        "iteration": 2100,
+        "lv_rate_mean": 1.0,
+        "lv_rate_std": 0.0
+      },
+      "normalized_lv_auc": 0.45059898438368345,
+      "per_training_seed_first_95_percent": {
+        "47": {
+          "interactions": 2153472,
+          "iteration": 700,
+          "lv_rate": 1.0
+        },
+        "48": {
+          "interactions": 2460672,
+          "iteration": 800,
+          "lv_rate": 1.0
+        },
+        "49": {
+          "interactions": 3996672,
+          "iteration": 1300,
+          "lv_rate": 1.0
+        }
+      }
+    },
+    "dm2": {
+      "development_best_checkpoint": {
+        "interactions": 7068672,
+        "iteration": 2300,
+        "lv_rate_mean": 0.421875,
+        "lv_rate_std": 0.47289831095067364
+      },
+      "final_checkpoint": {
+        "interactions": 9216000,
+        "iteration": 2999,
+        "lv_rate_mean": 0.0,
+        "lv_rate_std": 0.0
+      },
+      "first_95_percent_lv": null,
+      "normalized_lv_auc": 0.09464960542403023,
+      "per_training_seed_first_95_percent": {
+        "47": null,
+        "48": {
+          "interactions": 7068672,
+          "iteration": 2300,
+          "lv_rate": 0.953125
+        },
+        "49": null
+      }
+    }
+  },
+  "num_environments_per_seed": 64,
+  "num_training_seeds": 3,
+  "scenario_seed": 101,
+  "target_lv_rate": 0.95
+}
